@@ -65,9 +65,7 @@ componentLoop:
 func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDescriptorProto, msg *descriptor.DescriptorProto) (*jsonschema.Type, error) {
 
 	// Prepare a new jsonschema.Type for our eventual return value:
-	jsonSchemaType := &jsonschema.Type{
-		Properties: orderedmap.New(),
-	}
+	jsonSchemaType := &jsonschema.Type{}
 
 	// Generate a description from src comments (if available)
 	if src := c.sourceInfo.GetField(desc); src != nil {
@@ -224,6 +222,9 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 				Tracef("Is a map")
 
 			// Make sure we have a "value":
+			if recursedJSONSchemaType.Properties == nil {
+				return nil, fmt.Errorf("Unable to find 'value' property of MAP type")
+			}
 			value, ok := recursedJSONSchemaType.Properties.Get("value")
 			if !ok {
 				return nil, fmt.Errorf("Unable to find 'value' property of MAP type")
@@ -264,8 +265,7 @@ func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.Des
 
 	// Prepare a new jsonschema:
 	jsonSchemaType := jsonschema.Type{
-		Properties: orderedmap.New(),
-		Version:    jsonschema.Version,
+		Version: jsonschema.Version,
 	}
 	// Generate a description from src comments (if available)
 	if src := c.sourceInfo.GetMessage(msg); src != nil {
@@ -296,6 +296,9 @@ func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.Des
 		if err != nil {
 			c.logger.WithError(err).WithField("field_name", fieldDesc.GetName()).WithField("message_name", msg.GetName()).Error("Failed to convert field")
 			return jsonSchemaType, err
+		}
+		if jsonSchemaType.Properties == nil {
+			jsonSchemaType.Properties = orderedmap.New()
 		}
 		jsonSchemaType.Properties.Set(fieldDesc.GetName(), recursedJSONSchemaType)
 		if c.UseProtoAndJSONFieldnames && fieldDesc.GetName() != fieldDesc.GetJsonName() {

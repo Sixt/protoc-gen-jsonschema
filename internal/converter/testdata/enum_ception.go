@@ -3,6 +3,18 @@ package testdata
 const EnumCeption = `{
     "$schema": "http://json-schema.org/draft-04/schema#",
     "properties": {
+        "name": {
+            "type": "string"
+        },
+        "timestamp": {
+            "type": "string"
+        },
+        "id": {
+            "type": "integer"
+        },
+        "rating": {
+            "type": "number"
+        },
         "complete": {
             "type": "boolean"
         },
@@ -22,38 +34,22 @@ const EnumCeption = `{
                 }
             ]
         },
-        "id": {
-            "type": "integer"
-        },
-        "importedEnum": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "integer"
-                }
-            ]
-        },
-        "name": {
-            "type": "string"
-        },
         "payload": {
             "properties": {
-                "complete": {
-                    "type": "boolean"
+                "name": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
                 },
                 "id": {
                     "type": "integer"
                 },
-                "name": {
-                    "type": "string"
-                },
                 "rating": {
                     "type": "number"
                 },
-                "timestamp": {
-                    "type": "string"
+                "complete": {
+                    "type": "boolean"
                 },
                 "topology": {
                     "enum": [
@@ -87,20 +83,20 @@ const EnumCeption = `{
             "items": {
                 "$schema": "http://json-schema.org/draft-04/schema#",
                 "properties": {
-                    "complete": {
-                        "type": "boolean"
+                    "name": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string"
                     },
                     "id": {
                         "type": "integer"
                     },
-                    "name": {
-                        "type": "string"
-                    },
                     "rating": {
                         "type": "number"
                     },
-                    "timestamp": {
-                        "type": "string"
+                    "complete": {
+                        "type": "boolean"
                     },
                     "topology": {
                         "enum": [
@@ -132,11 +128,15 @@ const EnumCeption = `{
             },
             "type": "array"
         },
-        "rating": {
-            "type": "number"
-        },
-        "timestamp": {
-            "type": "string"
+        "importedEnum": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "integer"
+                }
+            ]
         }
     },
     "additionalProperties": true,
