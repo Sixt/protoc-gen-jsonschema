@@ -153,7 +153,7 @@ func (c *Converter) convertFile(file *descriptor.FileDescriptorProto) ([]*plugin
 			c.logger.WithField("proto_filename", protoFileName).WithField("msg_name", msg.GetName()).WithField("jsonschema_filename", jsonSchemaFileName).Info("Generating JSON-schema for MESSAGE")
 
 			// Convert the message:
-			messageJSONSchema, err := c.convertMessageType(pkg, msg)
+			messageJSONSchema, err := c.convertMessageType(pkg, msg, "")
 			if err != nil {
 				c.logger.WithError(err).WithField("proto_filename", protoFileName).Error("Failed to convert")
 				return nil, err

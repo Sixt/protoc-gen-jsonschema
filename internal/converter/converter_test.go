@@ -49,6 +49,7 @@ func TestGenerateJsonSchema(t *testing.T) {
 	testConvertSampleProto(t, sampleProtos["SeveralMessages"])
 	testConvertSampleProto(t, sampleProtos["ArrayOfEnums"])
 	testConvertSampleProto(t, sampleProtos["Maps"])
+	testConvertSampleProto(t, sampleProtos["WellKnown"])
 }
 
 func testConvertSampleProto(t *testing.T, sampleProto sampleProto) {
@@ -199,6 +200,12 @@ func configureSampleProtos() {
 		ExpectedJSONSchema: []string{testdata.MessageWithComments},
 		FilesToGenerate:    []string{"MessageWithComments.proto"},
 		ProtoFileName:      "MessageWithComments.proto",
+	}
+
+	sampleProtos["WellKnown"] = sampleProto{
+		ExpectedJSONSchema: []string{testdata.WellKnown},
+		FilesToGenerate:    []string{"WellKnown.proto"},
+		ProtoFileName:      "WellKnown.proto",
 	}
 }
 

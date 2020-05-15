@@ -19,6 +19,18 @@ var (
 		children: make(map[string]*ProtoPackage),
 		types:    make(map[string]*descriptor.DescriptorProto),
 	}
+
+	wellKnownTypes = map[string]bool{
+		"DoubleValue": true,
+		"FloatValue":  true,
+		"Int64Value":  true,
+		"UInt64Value": true,
+		"Int32Value":  true,
+		"UInt32Value": true,
+		"BoolValue":   true,
+		"StringValue": true,
+		"BytesValue":  true,
+	}
 )
 
 func (c *Converter) registerType(pkgName *string, msg *descriptor.DescriptorProto) {
@@ -200,13 +212,14 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 	// Recurse nested objects / arrays of objects (if necessary):
 	if jsonSchemaType.Type == gojsonschema.TYPE_OBJECT {
 
-		recordType, ok := c.lookupType(curPkg, desc.GetTypeName())
+		recordType, pkgName, ok := c.lookupType(curPkg, desc.GetTypeName())
 		if !ok {
 			return nil, fmt.Errorf("no such message type named %s", desc.GetTypeName())
 		}
 
 		// Recurse the recordType:
-		recursedJSONSchemaType, err := c.convertMessageType(curPkg, recordType)
+		recursedJSONSchemaType, err := c.convertMessageType(curPkg, recordType, pkgName)
+
 		if err != nil {
 			return nil, err
 		}
@@ -244,7 +257,13 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 
 		// Objects:
 		default:
-			jsonSchemaType.Properties = recursedJSONSchemaType.Properties
+			if recursedJSONSchemaType.OneOf != nil {
+				jsonSchemaType.AdditionalProperties = nil
+				jsonSchemaType.Type = ""
+				jsonSchemaType.OneOf = recursedJSONSchemaType.OneOf
+			} else {
+				jsonSchemaType.Properties = recursedJSONSchemaType.Properties
+			}
 		}
 
 		// Optionally allow NULL values:
@@ -261,7 +280,35 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 }
 
 // Converts a proto "MESSAGE" into a JSON-Schema:
-func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.DescriptorProto) (jsonschema.Type, error) {
+func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.DescriptorProto, pkgName string) (jsonschema.Type, error) {
+	if msg.Name != nil && wellKnownTypes[*msg.Name] && pkgName == ".google.protobuf" {
+		schema := jsonschema.Type{}
+		schema.Type = ""
+		switch *msg.Name {
+		case "DoubleValue", "FloatValue":
+			schema.OneOf = []*jsonschema.Type{
+				{Type: gojsonschema.TYPE_NULL},
+				{Type: gojsonschema.TYPE_NUMBER},
+			}
+		case "Int32Value", "UInt32Value", "Int64Value", "UInt64Value":
+			schema.OneOf = []*jsonschema.Type{
+				{Type: gojsonschema.TYPE_NULL},
+				{Type: gojsonschema.TYPE_INTEGER},
+			}
+		case "BoolValue":
+			schema.OneOf = []*jsonschema.Type{
+				{Type: gojsonschema.TYPE_NULL},
+				{Type: gojsonschema.TYPE_BOOLEAN},
+			}
+		case "BytesValue", "StringValue":
+			schema.OneOf = []*jsonschema.Type{
+				{Type: gojsonschema.TYPE_NULL},
+				{Type: gojsonschema.TYPE_STRING},
+			}
+		}
+		return schema, nil
+	}
+
 
 	// Prepare a new jsonschema:
 	jsonSchemaType := jsonschema.Type{
