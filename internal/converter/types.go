@@ -20,16 +20,16 @@ var (
 		types:    make(map[string]*descriptor.DescriptorProto),
 	}
 
-	wellKnownTypes = map[string]bool{
-		"DoubleValue": true,
-		"FloatValue":  true,
-		"Int64Value":  true,
-		"UInt64Value": true,
-		"Int32Value":  true,
-		"UInt32Value": true,
-		"BoolValue":   true,
-		"StringValue": true,
-		"BytesValue":  true,
+	wellKnownTypes = map[string]string{
+		"DoubleValue": gojsonschema.TYPE_NUMBER,
+		"FloatValue":  gojsonschema.TYPE_NUMBER,
+		"Int64Value":  gojsonschema.TYPE_INTEGER,
+		"UInt64Value": gojsonschema.TYPE_INTEGER,
+		"Int32Value":  gojsonschema.TYPE_INTEGER,
+		"UInt32Value": gojsonschema.TYPE_INTEGER,
+		"BoolValue":   gojsonschema.TYPE_BOOLEAN,
+		"StringValue": gojsonschema.TYPE_STRING,
+		"BytesValue":  gojsonschema.TYPE_STRING,
 	}
 )
 
@@ -233,7 +233,6 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 				WithField("field_name", recordType.GetName()).
 				WithField("msg_name", *msg.Name).
 				Tracef("Is a map")
-
 			// Make sure we have a "value":
 			if recursedJSONSchemaType.Properties == nil {
 				return nil, fmt.Errorf("Unable to find 'value' property of MAP type")
@@ -257,7 +256,13 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 
 		// Objects:
 		default:
-			if recursedJSONSchemaType.OneOf != nil {
+			isPrimitive := true
+			for _, t := range recursedJSONSchemaType.OneOf {
+				if t.Type == gojsonschema.TYPE_OBJECT || t.Type == gojsonschema.TYPE_ARRAY {
+					isPrimitive = false
+				}
+			}
+			if recursedJSONSchemaType.OneOf != nil && isPrimitive {
 				jsonSchemaType.AdditionalProperties = nil
 				jsonSchemaType.Type = ""
 				jsonSchemaType.OneOf = recursedJSONSchemaType.OneOf
@@ -266,8 +271,8 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 			}
 		}
 
-		// Optionally allow NULL values:
-		if c.AllowNullValues {
+		// Optionally allow NULL values, if not already nullable
+		if c.AllowNullValues && jsonSchemaType.OneOf == nil {
 			jsonSchemaType.OneOf = []*jsonschema.Type{
 				{Type: gojsonschema.TYPE_NULL},
 				{Type: jsonSchemaType.Type},
@@ -281,34 +286,17 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 
 // Converts a proto "MESSAGE" into a JSON-Schema:
 func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.DescriptorProto, pkgName string) (jsonschema.Type, error) {
-	if msg.Name != nil && wellKnownTypes[*msg.Name] && pkgName == ".google.protobuf" {
-		schema := jsonschema.Type{}
-		schema.Type = ""
-		switch *msg.Name {
-		case "DoubleValue", "FloatValue":
-			schema.OneOf = []*jsonschema.Type{
-				{Type: gojsonschema.TYPE_NULL},
-				{Type: gojsonschema.TYPE_NUMBER},
+	if msg.Name != nil && pkgName == ".google.protobuf" {
+		if jsonType, ok := wellKnownTypes[*msg.Name]; ok {
+			schema := jsonschema.Type{
+				OneOf: []*jsonschema.Type{
+					{Type: gojsonschema.TYPE_NULL},
+					{Type: jsonType},
+				},
 			}
-		case "Int32Value", "UInt32Value", "Int64Value", "UInt64Value":
-			schema.OneOf = []*jsonschema.Type{
-				{Type: gojsonschema.TYPE_NULL},
-				{Type: gojsonschema.TYPE_INTEGER},
-			}
-		case "BoolValue":
-			schema.OneOf = []*jsonschema.Type{
-				{Type: gojsonschema.TYPE_NULL},
-				{Type: gojsonschema.TYPE_BOOLEAN},
-			}
-		case "BytesValue", "StringValue":
-			schema.OneOf = []*jsonschema.Type{
-				{Type: gojsonschema.TYPE_NULL},
-				{Type: gojsonschema.TYPE_STRING},
-			}
+			return schema, nil
 		}
-		return schema, nil
 	}
-
 
 	// Prepare a new jsonschema:
 	jsonSchemaType := jsonschema.Type{
@@ -339,11 +327,11 @@ func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.Des
 	c.logger.WithField("message_str", proto.MarshalTextString(msg)).Trace("Converting message")
 	for _, fieldDesc := range msg.GetField() {
 		recursedJSONSchemaType, err := c.convertField(curPkg, fieldDesc, msg)
-		c.logger.WithField("field_name", fieldDesc.GetName()).WithField("type", recursedJSONSchemaType.Type).Debug("Converted field")
 		if err != nil {
 			c.logger.WithError(err).WithField("field_name", fieldDesc.GetName()).WithField("message_name", msg.GetName()).Error("Failed to convert field")
 			return jsonSchemaType, err
 		}
+		c.logger.WithField("field_name", fieldDesc.GetName()).WithField("type", recursedJSONSchemaType.Type).Debug("Converted field")
 		if jsonSchemaType.Properties == nil {
 			jsonSchemaType.Properties = orderedmap.New()
 		}
@@ -352,6 +340,7 @@ func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.Des
 			jsonSchemaType.Properties.Set(fieldDesc.GetJsonName(), recursedJSONSchemaType)
 		}
 	}
+
 	return jsonSchemaType, nil
 }
 
