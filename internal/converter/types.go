@@ -23,8 +23,8 @@ var (
 	wellKnownTypes = map[string]string{
 		"DoubleValue": gojsonschema.TYPE_NUMBER,
 		"FloatValue":  gojsonschema.TYPE_NUMBER,
-		"Int64Value":  gojsonschema.TYPE_INTEGER,
-		"UInt64Value": gojsonschema.TYPE_INTEGER,
+		"Int64Value":  gojsonschema.TYPE_STRING,
+		"UInt64Value": gojsonschema.TYPE_STRING,
 		"Int32Value":  gojsonschema.TYPE_INTEGER,
 		"UInt32Value": gojsonschema.TYPE_INTEGER,
 		"BoolValue":   gojsonschema.TYPE_BOOLEAN,
