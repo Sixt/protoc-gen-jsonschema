@@ -2,8 +2,23 @@ package testdata
 
 const NestedObject = `{
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "properties": {
-        "payload": {
+    "$ref": "#/definitions/NestedObject",
+    "definitions": {
+        "NestedObject": {
+            "properties": {
+                "payload": {
+                    "$ref": "#/definitions/samples.NestedObject.NestedPayload",
+                    "additionalProperties": true
+                },
+                "description": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Nested Object"
+        },
+        "samples.NestedObject.NestedPayload": {
             "properties": {
                 "name": {
                     "type": "string"
@@ -42,16 +57,21 @@ const NestedObject = `{
                         {
                             "type": "integer"
                         }
-                    ]
+                    ],
+                    "title": "Topology"
                 }
             },
             "additionalProperties": true,
-            "type": "object"
-        },
-        "description": {
-            "type": "string"
+            "type": "object",
+            "title": "Nested Payload"
         }
-    },
-    "additionalProperties": true,
-    "type": "object"
+    }
+}`
+
+const NestedObjectFail = `{"payload": false}`
+
+const NestedObjectPass = `{
+	"payload": {
+	  "topology": "NESTED_OBJECT"
+	}
 }`

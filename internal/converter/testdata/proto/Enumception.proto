@@ -2,9 +2,10 @@ syntax = "proto3";
 package samples;
 
 import "PayloadMessage.proto";
-import "ImportedEnum.proto";
 
 message Enumception {
+
+    // FailureModes enum
     enum FailureModes {
         RECURSION_ERROR = 0;
         SYNTAX_ERROR    = 1;
@@ -18,5 +19,4 @@ message Enumception {
     FailureModes failureMode         = 6;
     PayloadMessage payload           = 7;
     repeated PayloadMessage payloads = 8;
-    ImportedEnum importedEnum        = 9;
 }

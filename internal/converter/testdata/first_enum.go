@@ -19,5 +19,10 @@ const FirstEnum = `{
         {
             "type": "integer"
         }
-    ]
+    ],
+    "title": "First Enum"
 }`
+
+const FirstEnumFail = `5`
+
+const FirstEnumPass = `3`

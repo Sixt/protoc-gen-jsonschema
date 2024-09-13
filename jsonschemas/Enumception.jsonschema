@@ -125,16 +125,6 @@
                 "type": "object"
             },
             "type": "array"
-        },
-        "importedEnum": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "integer"
-                }
-            ]
         }
     },
     "additionalProperties": false,

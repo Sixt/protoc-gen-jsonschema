@@ -2,215 +2,220 @@ package testdata
 
 const ArrayOfPrimitives = `{
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "properties": {
-        "description": {
-            "oneOf": [
-                {
-                    "type": "null"
+    "$ref": "#/definitions/ArrayOfPrimitives",
+    "definitions": {
+        "ArrayOfPrimitives": {
+            "properties": {
+                "description": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
-                {
-                    "type": "string"
-                }
-            ]
-        },
-        "luckyNumbers": {
-            "items": {
-                "oneOf": [
-                    {
-                        "type": "null"
+                "luckyNumbers": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "integer"
+                            }
+                        ]
                     },
-                    {
-                        "type": "integer"
-                    }
-                ]
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "luckyBigNumbers": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "keyWords": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "big_number": {
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
             },
+            "additionalProperties": true,
             "oneOf": [
                 {
                     "type": "null"
                 },
                 {
-                    "type": "array"
+                    "type": "object"
                 }
-            ]
-        },
-        "luckyBigNumbers": {
-            "items": {
-                "oneOf": [
-                    {
-                        "type": "integer"
-                    },
-                    {
-                        "type": "string"
-                    },
-                    {
-                        "type": "null"
-                    }
-                ]
-            },
-            "oneOf": [
-                {
-                    "type": "null"
-                },
-                {
-                    "type": "array"
-                }
-            ]
-        },
-        "keyWords": {
-            "items": {
-                "oneOf": [
-                    {
-                        "type": "null"
-                    },
-                    {
-                        "type": "string"
-                    }
-                ]
-            },
-            "oneOf": [
-                {
-                    "type": "null"
-                },
-                {
-                    "type": "array"
-                }
-            ]
-        },
-        "big_number": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            ],
+            "title": "Array Of Primitives"
         }
-    },
-    "additionalProperties": true,
-    "oneOf": [
-        {
-            "type": "null"
-        },
-        {
-            "type": "object"
-        }
-    ]
+    }
 }`
+
+const ArrayOfPrimitivesFail = `{"luckyNumbers": ["false"]}`
+
+const ArrayOfPrimitivesPass = `{"luckyNumbers": [1,2,3]}`
 
 const ArrayOfPrimitivesDouble = `{
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "properties": {
-        "description": {
-            "oneOf": [
-                {
-                    "type": "null"
+    "$ref": "#/definitions/ArrayOfPrimitives",
+    "definitions": {
+        "ArrayOfPrimitives": {
+            "properties": {
+                "description": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
-                {
-                    "type": "string"
-                }
-            ]
-        },
-        "luckyNumbers": {
-            "items": {
-                "oneOf": [
-                    {
-                        "type": "null"
+                "luckyNumbers": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "integer"
+                            }
+                        ]
                     },
-                    {
-                        "type": "integer"
-                    }
-                ]
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "luckyBigNumbers": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "keyWords": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "big_number": {
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "bigNumber": {
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
             },
+            "additionalProperties": true,
             "oneOf": [
                 {
                     "type": "null"
                 },
                 {
-                    "type": "array"
+                    "type": "object"
                 }
-            ]
-        },
-        "luckyBigNumbers": {
-            "items": {
-                "oneOf": [
-                    {
-                        "type": "integer"
-                    },
-                    {
-                        "type": "string"
-                    },
-                    {
-                        "type": "null"
-                    }
-                ]
-            },
-            "oneOf": [
-                {
-                    "type": "null"
-                },
-                {
-                    "type": "array"
-                }
-            ]
-        },
-        "keyWords": {
-            "items": {
-                "oneOf": [
-                    {
-                        "type": "null"
-                    },
-                    {
-                        "type": "string"
-                    }
-                ]
-            },
-            "oneOf": [
-                {
-                    "type": "null"
-                },
-                {
-                    "type": "array"
-                }
-            ]
-        },
-        "big_number": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "bigNumber": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            ],
+            "title": "Array Of Primitives"
         }
-    },
-    "additionalProperties": true,
-    "oneOf": [
-        {
-            "type": "null"
-        },
-        {
-            "type": "object"
-        }
-    ]
+    }
 }`
+
+const ArrayOfPrimitivesDoubleFail = `{"bigNumber": false}`
+
+const ArrayOfPrimitivesDoublePass = `{"bigNumber": "2"}`

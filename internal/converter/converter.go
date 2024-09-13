@@ -6,34 +6,73 @@ import (
 	"io"
 	"io/ioutil"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/alecthomas/jsonschema"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"github.com/iancoleman/strcase"
 	"github.com/sirupsen/logrus"
+	"github.com/xeipuuv/gojsonschema"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
+)
+
+const (
+	defaultCommentDelimiter    = "  "
+	defaultExcludeCommentToken = "@exclude"
+	defaultFileExtension       = "json"
+	defaultPackageName         = "package"
+	defaultRefPrefix           = "#/definitions/"
+	messageDelimiter           = "+"
+	versionDraft04             = "http://json-schema.org/draft-04/schema#"
+	versionDraft06             = "http://json-schema.org/draft-06/schema#"
 )
 
 // Converter is everything you need to convert protos to JSONSchemas:
 type Converter struct {
+	Flags               ConverterFlags
+	commentDelimiter    string
+	excludeCommentToken string
+	logger              *logrus.Logger
+	refPrefix           string
+	schemaFileExtension string
+	schemaVersion       string
+	sourceInfo          *sourceCodeInfo
+	messageTargets      []string
+}
+
+// ConverterFlags control the behaviour of the converter:
+type ConverterFlags struct {
+	AllFieldsRequired            bool
 	AllowNullValues              bool
 	DisallowAdditionalProperties bool
 	DisallowBigIntsAsStrings     bool
-	UseProtoAndJSONFieldnames    bool
-	logger                       *logrus.Logger
-	sourceInfo                   *sourceCodeInfo
+	EnforceOneOf                 bool
+	EnumsAsConstants             bool
+	EnumsAsStringsOnly           bool
+	EnumsTrimPrefix              bool
+	KeepNewLinesInDescription    bool
+	PrefixSchemaFilesWithPackage bool
+	UseJSONFieldnamesOnly        bool
+	UseProtoAndJSONFieldNames    bool
+	TypeNamesWithNoPackage       bool
 }
 
-// New returns a configured *Converter:
+// New returns a configured *Converter (defaulting to draft-04 version):
 func New(logger *logrus.Logger) *Converter {
 	return &Converter{
-		logger: logger,
+		commentDelimiter:    defaultCommentDelimiter,
+		excludeCommentToken: defaultExcludeCommentToken,
+		logger:              logger,
+		refPrefix:           defaultRefPrefix,
+		schemaFileExtension: defaultFileExtension,
+		schemaVersion:       versionDraft04,
 	}
 }
 
 // ConvertFrom tells the convert to work on the given input:
-func (c *Converter) ConvertFrom(rd io.Reader) (*plugin.CodeGeneratorResponse, error) {
+func (c *Converter) ConvertFrom(rd io.Reader) (*pluginpb.CodeGeneratorResponse, error) {
 	c.logger.Debug("Reading code generation request")
 	input, err := ioutil.ReadAll(rd)
 	if err != nil {
@@ -41,92 +80,168 @@ func (c *Converter) ConvertFrom(rd io.Reader) (*plugin.CodeGeneratorResponse, er
 		return nil, err
 	}
 
-	req := &plugin.CodeGeneratorRequest{}
+	req := &pluginpb.CodeGeneratorRequest{}
 	err = proto.Unmarshal(input, req)
 	if err != nil {
 		c.logger.WithError(err).Error("Can't unmarshal input")
 		return nil, err
 	}
 
-	c.parseGeneratorParameters(req.GetParameter())
-
 	c.logger.Debug("Converting input")
 	return c.convert(req)
-	// return c.debugger(req)
 }
 
 func (c *Converter) parseGeneratorParameters(parameters string) {
 	for _, parameter := range strings.Split(parameters, ",") {
 		switch parameter {
+		case "all_fields_required":
+			c.Flags.AllFieldsRequired = true
 		case "allow_null_values":
-			c.AllowNullValues = true
+			c.Flags.AllowNullValues = true
 		case "debug":
 			c.logger.SetLevel(logrus.DebugLevel)
 		case "disallow_additional_properties":
-			c.DisallowAdditionalProperties = true
+			c.Flags.DisallowAdditionalProperties = true
 		case "disallow_bigints_as_strings":
-			c.DisallowBigIntsAsStrings = true
+			c.Flags.DisallowBigIntsAsStrings = true
+		case "enforce_oneof":
+			c.Flags.EnforceOneOf = true
+		case "enums_as_strings_only":
+			c.Flags.EnumsAsStringsOnly = true
+		case "enums_trim_prefix":
+			c.Flags.EnumsTrimPrefix = true
+		case "json_fieldnames":
+			c.Flags.UseJSONFieldnamesOnly = true
+		case "prefix_schema_files_with_package":
+			c.Flags.PrefixSchemaFilesWithPackage = true
 		case "proto_and_json_fieldnames":
-			c.UseProtoAndJSONFieldnames = true
+			c.Flags.UseProtoAndJSONFieldNames = true
+		case "type_names_with_no_package":
+			c.Flags.TypeNamesWithNoPackage = true
+		}
+
+		// look for specific message targets
+		// message types are separated by messageDelimiter "+"
+		// examples:
+		// 		messages=[foo+bar]
+		// 		messages=[foo]
+		rx := regexp.MustCompile(`messages=\[([^\]]+)\]`)
+		if matches := rx.FindStringSubmatch(parameter); len(matches) == 2 {
+			c.messageTargets = strings.Split(matches[1], messageDelimiter)
+		}
+
+		// Configure custom file extension:
+		if parameterParts := strings.Split(parameter, "file_extension="); len(parameterParts) == 2 {
+			c.schemaFileExtension = parameterParts[1]
 		}
 	}
 }
 
 // Converts a proto "ENUM" into a JSON-Schema:
-func (c *Converter) convertEnumType(enum *descriptor.EnumDescriptorProto) (jsonschema.Type, error) {
+func (c *Converter) convertEnumType(enum *descriptorpb.EnumDescriptorProto, converterFlags ConverterFlags) (jsonschema.Type, error) {
 
 	// Prepare a new jsonschema.Type for our eventual return value:
-	jsonSchemaType := jsonschema.Type{
-		Version: jsonschema.Version,
-	}
+	jsonSchemaType := jsonschema.Type{}
 
-	// Generate a description from src comments (if available)
+	// Inherit the CLI converterFlags:
+	converterFlags.EnumsAsStringsOnly = c.Flags.EnumsAsStringsOnly
+
+	// Generate a description from src comments (if available):
 	if src := c.sourceInfo.GetEnum(enum); src != nil {
-		jsonSchemaType.Description = formatDescription(src)
+		jsonSchemaType.Title, jsonSchemaType.Description = c.formatTitleAndDescription(enum.GetName(), src)
 	}
 
-	// Allow both strings and integers:
-	jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: "string"})
-	jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: "integer"})
+	// Use basic types if we're not opting to use constants for ENUMs:
+	if !converterFlags.EnumsAsConstants {
+		jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_STRING})
+		if !converterFlags.EnumsAsStringsOnly {
+			jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_INTEGER})
+		}
+	}
 
-	// Add the allowed values:
-	for _, enumValue := range enum.Value {
-		jsonSchemaType.Enum = append(jsonSchemaType.Enum, enumValue.Name)
-		jsonSchemaType.Enum = append(jsonSchemaType.Enum, enumValue.Number)
+	// Optionally allow NULL values:
+	if converterFlags.AllowNullValues {
+		jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_NULL})
+	}
+
+	// If we end up with just one option in OneOf, unwrap it
+	if len(jsonSchemaType.OneOf) == 1 {
+		jsonSchemaType.Type = jsonSchemaType.OneOf[0].Type
+		jsonSchemaType.OneOf = nil
+	}
+
+	// If we need to trim prefix from enum value
+	enumNamePrefix := fmt.Sprintf("%s_", strcase.ToScreamingSnake(*enum.Name))
+
+	// We have found an enum, append its values:
+	for _, value := range enum.Value {
+
+		// Each ENUM value can have comments too:
+		var valueDescription string
+		if src := c.sourceInfo.GetEnumValue(value); src != nil {
+			_, valueDescription = c.formatTitleAndDescription("", src)
+		}
+
+		valueName := value.GetName()
+
+		// If enum name prefix should be removed from enum value name:
+		if converterFlags.EnumsTrimPrefix {
+			valueName = strings.TrimPrefix(valueName, enumNamePrefix)
+		}
+
+		// If we're using constants for ENUMs then add these here, along with their title:
+		if converterFlags.EnumsAsConstants {
+			c.schemaVersion = versionDraft06 // Const requires draft-06
+			jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Extras: map[string]interface{}{"const": valueName}, Description: valueDescription})
+			if !converterFlags.EnumsAsStringsOnly {
+				jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Extras: map[string]interface{}{"const": value.GetNumber()}, Description: valueDescription})
+			}
+		}
+
+		// Add the values to the ENUM:
+		jsonSchemaType.Enum = append(jsonSchemaType.Enum, valueName)
+		if !converterFlags.EnumsAsStringsOnly {
+			jsonSchemaType.Enum = append(jsonSchemaType.Enum, value.Number)
+		}
 	}
 
 	return jsonSchemaType, nil
 }
 
 // Converts a proto file into a JSON-Schema:
-func (c *Converter) convertFile(file *descriptor.FileDescriptorProto) ([]*plugin.CodeGeneratorResponse_File, error) {
+func (c *Converter) convertFile(file *descriptorpb.FileDescriptorProto, fileExtension string) ([]*pluginpb.CodeGeneratorResponse_File, error) {
 
 	// Input filename:
 	protoFileName := path.Base(file.GetName())
 
 	// Prepare a list of responses:
-	response := []*plugin.CodeGeneratorResponse_File{}
+	var response []*pluginpb.CodeGeneratorResponse_File
+
+	// user wants specific messages
+	genSpecificMessages := len(c.messageTargets) > 0
 
 	// Warn about multiple messages / enums in files:
-	if len(file.GetMessageType()) > 1 {
-		c.logger.WithField("schemas", len(file.GetMessageType())).WithField("proto_filename", protoFileName).Warn("protoc-gen-jsonschema will create multiple MESSAGE schemas from one proto file")
+	if !genSpecificMessages && len(file.GetMessageType()) > 1 {
+		c.logger.WithField("schemas", len(file.GetMessageType())).WithField("proto_filename", protoFileName).Debug("protoc-gen-jsonschema will create multiple MESSAGE schemas from one proto file")
 	}
+
 	if len(file.GetEnumType()) > 1 {
-		c.logger.WithField("schemas", len(file.GetMessageType())).WithField("proto_filename", protoFileName).Warn("protoc-gen-jsonschema will create multiple ENUM schemas from one proto file")
+		c.logger.WithField("schemas", len(file.GetMessageType())).WithField("proto_filename", protoFileName).Debug("protoc-gen-jsonschema will create multiple ENUM schemas from one proto file")
 	}
 
 	// Generate standalone ENUMs:
 	if len(file.GetMessageType()) == 0 {
 		for _, enum := range file.GetEnumType() {
-			jsonSchemaFileName := fmt.Sprintf("%s.jsonschema", enum.GetName())
+			jsonSchemaFileName := c.generateSchemaFilename(file, fileExtension, enum.GetName())
 			c.logger.WithField("proto_filename", protoFileName).WithField("enum_name", enum.GetName()).WithField("jsonschema_filename", jsonSchemaFileName).Info("Generating JSON-schema for stand-alone ENUM")
 
 			// Convert the ENUM:
-			enumJSONSchema, err := c.convertEnumType(enum)
+			enumJSONSchema, err := c.convertEnumType(enum, ConverterFlags{})
 			if err != nil {
 				c.logger.WithError(err).WithField("proto_filename", protoFileName).Error("Failed to convert")
 				return nil, err
 			}
+			enumJSONSchema.Version = c.schemaVersion
 
 			// Marshal the JSON-Schema into JSON:
 			jsonSchemaJSON, err := json.MarshalIndent(enumJSONSchema, "", "    ")
@@ -136,7 +251,7 @@ func (c *Converter) convertFile(file *descriptor.FileDescriptorProto) ([]*plugin
 			}
 
 			// Add a response:
-			resFile := &plugin.CodeGeneratorResponse_File{
+			resFile := &pluginpb.CodeGeneratorResponse_File{
 				Name:    proto.String(jsonSchemaFileName),
 				Content: proto.String(string(jsonSchemaJSON)),
 			}
@@ -148,16 +263,25 @@ func (c *Converter) convertFile(file *descriptor.FileDescriptorProto) ([]*plugin
 		if !ok {
 			return nil, fmt.Errorf("no such package found: %s", file.GetPackage())
 		}
-		for _, msg := range file.GetMessageType() {
-			jsonSchemaFileName := fmt.Sprintf("%s.jsonschema", msg.GetName())
-			c.logger.WithField("proto_filename", protoFileName).WithField("msg_name", msg.GetName()).WithField("jsonschema_filename", jsonSchemaFileName).Info("Generating JSON-schema for MESSAGE")
+
+		// Go through all of the messages in this file:
+		for _, msgDesc := range file.GetMessageType() {
+
+			// skip if we are only generating schema for specific messages
+			if genSpecificMessages && !contains(c.messageTargets, msgDesc.GetName()) {
+				continue
+			}
 
 			// Convert the message:
-			messageJSONSchema, err := c.convertMessageType(pkg, msg, "")
+			messageJSONSchema, err := c.convertMessageType(pkg, msgDesc)
 			if err != nil {
 				c.logger.WithError(err).WithField("proto_filename", protoFileName).Error("Failed to convert")
 				return nil, err
 			}
+
+			// Generate a schema filename:
+			jsonSchemaFileName := c.generateSchemaFilename(file, fileExtension, msgDesc.GetName())
+			c.logger.WithField("proto_filename", protoFileName).WithField("msg_name", msgDesc.GetName()).WithField("jsonschema_filename", jsonSchemaFileName).Info("Generating JSON-schema for MESSAGE")
 
 			// Marshal the JSON-Schema into JSON:
 			jsonSchemaJSON, err := json.MarshalIndent(messageJSONSchema, "", "    ")
@@ -167,7 +291,7 @@ func (c *Converter) convertFile(file *descriptor.FileDescriptorProto) ([]*plugin
 			}
 
 			// Add a response:
-			resFile := &plugin.CodeGeneratorResponse_File{
+			resFile := &pluginpb.CodeGeneratorResponse_File{
 				Name:    proto.String(jsonSchemaFileName),
 				Content: proto.String(string(jsonSchemaJSON)),
 			}
@@ -178,30 +302,78 @@ func (c *Converter) convertFile(file *descriptor.FileDescriptorProto) ([]*plugin
 	return response, nil
 }
 
-func (c *Converter) convert(req *plugin.CodeGeneratorRequest) (*plugin.CodeGeneratorResponse, error) {
+// convert processes a protoc CodeGeneratorRequest:
+func (c *Converter) convert(request *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorResponse, error) {
+	response := &pluginpb.CodeGeneratorResponse{}
+
+	// Parse the various generator parameter flags:
+	c.parseGeneratorParameters(request.GetParameter())
+
+	// Prepare a list of target files:
 	generateTargets := make(map[string]bool)
-	for _, file := range req.GetFileToGenerate() {
+	for _, file := range request.GetFileToGenerate() {
 		generateTargets[file] = true
 	}
 
-	c.sourceInfo = newSourceCodeInfo(req.GetProtoFile())
-	res := &plugin.CodeGeneratorResponse{}
-	for _, file := range req.GetProtoFile() {
-		for _, msg := range file.GetMessageType() {
-			c.logger.WithField("msg_name", msg.GetName()).WithField("package_name", file.GetPackage()).Debug("Loading a message")
-			c.registerType(file.Package, msg)
+	// Get the source-code info (we use this to map any code comments to JSONSchema descriptions):
+	c.sourceInfo = newSourceCodeInfo(request.GetProtoFile())
+
+	// Go through the list of proto files provided by protoc:
+	for _, fileDesc := range request.GetProtoFile() {
+
+		// Start with the default / global file extension:
+		fileExtension := c.schemaFileExtension
+
+		// Check that this file has a proto package, and give it one if not:
+		if fileDesc.GetPackage() == "" {
+			c.logger.WithField("filename", fileDesc.GetName()).WithField("default_package_name", defaultPackageName).Debug("Proto file doesn't specify a package - assuming the default")
+			fileDesc.Package = proto.String(defaultPackageName)
 		}
-	}
-	for _, file := range req.GetProtoFile() {
-		if _, ok := generateTargets[file.GetName()]; ok {
-			c.logger.WithField("filename", file.GetName()).Debug("Converting file")
-			converted, err := c.convertFile(file)
+
+		// Build a list of any messages specified by this file:
+		for _, msgDesc := range fileDesc.GetMessageType() {
+			c.logger.WithField("msg_name", msgDesc.GetName()).WithField("package_name", fileDesc.GetPackage()).Debug("Loading a message")
+			c.registerType(fileDesc.GetPackage(), msgDesc)
+		}
+
+		// Build a list of any enums specified by this file:
+		for _, en := range fileDesc.GetEnumType() {
+			c.logger.WithField("enum_name", en.GetName()).WithField("package_name", fileDesc.GetPackage()).Debug("Loading an enum")
+			c.registerEnum(fileDesc.GetPackage(), en)
+		}
+
+		// Generate schemas for this file:
+		if _, ok := generateTargets[fileDesc.GetName()]; ok {
+			c.logger.WithField("filename", fileDesc.GetName()).Debug("Converting file")
+			converted, err := c.convertFile(fileDesc, fileExtension)
 			if err != nil {
-				res.Error = proto.String(fmt.Sprintf("Failed to convert %s: %v", file.GetName(), err))
-				return res, err
+				response.Error = proto.String(fmt.Sprintf("Failed to convert %s: %v", fileDesc.GetName(), err))
+				return response, err
 			}
-			res.File = append(res.File, converted...)
+			response.File = append(response.File, converted...)
 		}
 	}
-	return res, nil
+
+	// This is required in order to "support" optional proto3 fields:
+	// https://chromium.googlesource.com/external/github.com/protocolbuffers/protobuf/+/refs/heads/master/docs/implementing_proto3_presence.md
+	response.SupportedFeatures = proto.Uint64(uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL))
+
+	return response, nil
+}
+
+func (c *Converter) generateSchemaFilename(file *descriptorpb.FileDescriptorProto, fileExtension, protoName string) string {
+	if c.Flags.PrefixSchemaFilesWithPackage {
+		return fmt.Sprintf("%s/%s.%s", file.GetPackage(), protoName, fileExtension)
+	}
+	return fmt.Sprintf("%s.%s", protoName, fileExtension)
+}
+
+func contains(haystack []string, needle string) bool {
+	for i := 0; i < len(haystack); i++ {
+		if haystack[i] == needle {
+			return true
+		}
+	}
+
+	return false
 }
