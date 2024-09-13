@@ -21,7 +21,7 @@ import (
 const (
 	defaultCommentDelimiter    = "  "
 	defaultExcludeCommentToken = "@exclude"
-	defaultFileExtension       = "json"
+	defaultFileExtension       = "jsonschema"
 	defaultPackageName         = "package"
 	defaultRefPrefix           = "#/definitions/"
 	messageDelimiter           = "+"
