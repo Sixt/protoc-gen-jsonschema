@@ -1,4 +1,4 @@
-module github.com/chrusty/protoc-gen-jsonschema
+module github.com/sixt/protoc-gen-jsonschema
 
 go 1.23
 

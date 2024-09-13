@@ -10,11 +10,11 @@ build:
 .PHONY: fmt
 fmt:
 	gofmt -s -w .
-	goimports -w -local github.com/chrusty/protoc-gen-jsonschema .
+	goimports -w -local github.com/sixt/protoc-gen-jsonschema .
 
 .PHONY: install
 install:
-	go install github.com/chrusty/protoc-gen-jsonschema/cmd/protoc-gen-jsonschema
+	go install github.com/sixt/protoc-gen-jsonschema/cmd/protoc-gen-jsonschema
 
 .PHONY: build_linux
 build_linux:
