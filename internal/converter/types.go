@@ -267,19 +267,7 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 
 		// Objects:
 		default:
-			isPrimitive := true
-			for _, t := range recursedJSONSchemaType.OneOf {
-				if t.Type == gojsonschema.TYPE_OBJECT || t.Type == gojsonschema.TYPE_ARRAY {
-					isPrimitive = false
-				}
-			}
-			if recursedJSONSchemaType.OneOf != nil && isPrimitive {
-				jsonSchemaType.AdditionalProperties = nil
-				jsonSchemaType.Type = ""
-				jsonSchemaType.OneOf = recursedJSONSchemaType.OneOf
-			} else {
-				jsonSchemaType.Properties = recursedJSONSchemaType.Properties
-			}
+			jsonSchemaType.Properties = recursedJSONSchemaType.Properties
 		}
 
 		// Optionally allow NULL values, if not already nullable
