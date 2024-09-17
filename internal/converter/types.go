@@ -35,16 +35,16 @@ var (
 		"UInt64Value": &jsonschema.Type{Type: gojsonschema.TYPE_STRING},
 
 		// Complex WKTs
-		"Duration":    &jsonschema.Type{
+		"Duration": &jsonschema.Type{
 			Type:    gojsonschema.TYPE_STRING,
 			Format:  "regex",
-			Pattern: `^[0-9]+(\.[0-9]{0,9})?s$`,
+			Pattern: `^-?[0-9]+(\.[0-9]{0,9})?s$`,
 		},
 		"Empty": &jsonschema.Type{
 			Type:                 gojsonschema.TYPE_OBJECT,
 			AdditionalProperties: json.RawMessage("false"),
 		},
-		"Timestamp":   &jsonschema.Type{
+		"Timestamp": &jsonschema.Type{
 			Type:   gojsonschema.TYPE_STRING,
 			Format: "date-time",
 		},
