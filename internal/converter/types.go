@@ -21,15 +21,17 @@ var (
 	}
 
 	wellKnownTypes = map[string]string{
+		"BoolValue":   gojsonschema.TYPE_BOOLEAN,
+		"BytesValue":  gojsonschema.TYPE_STRING,
 		"DoubleValue": gojsonschema.TYPE_NUMBER,
 		"FloatValue":  gojsonschema.TYPE_NUMBER,
-		"Int64Value":  gojsonschema.TYPE_STRING,
-		"UInt64Value": gojsonschema.TYPE_STRING,
 		"Int32Value":  gojsonschema.TYPE_INTEGER,
-		"UInt32Value": gojsonschema.TYPE_INTEGER,
-		"BoolValue":   gojsonschema.TYPE_BOOLEAN,
+		"Int64Value":  gojsonschema.TYPE_STRING,
+		"ListValue":   gojsonschema.TYPE_ARRAY,
 		"StringValue": gojsonschema.TYPE_STRING,
-		"BytesValue":  gojsonschema.TYPE_STRING,
+		"Struct":      gojsonschema.TYPE_OBJECT,
+		"UInt32Value": gojsonschema.TYPE_INTEGER,
+		"UInt64Value": gojsonschema.TYPE_STRING,
 	}
 )
 
@@ -136,6 +138,13 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 		}
 
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
+		if name, ok := strings.CutPrefix(desc.GetTypeName(), ".google.protobuf."); ok {
+			switch name {
+			case "NullValue":
+				return &jsonschema.Type{Type: gojsonschema.TYPE_NULL}, nil
+			}
+		}
+
 		jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_STRING})
 		jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_INTEGER})
 		if c.AllowNullValues {
@@ -229,10 +238,7 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 
 		// Maps:
 		case recordType.Options.GetMapEntry():
-			c.logger.
-				WithField("field_name", recordType.GetName()).
-				WithField("msg_name", *msg.Name).
-				Tracef("Is a map")
+			c.logger.WithField("field_name", recordType.GetName()).WithField("msg_name", *msg.Name).Tracef("Is a map")
 			// Make sure we have a "value":
 			if recursedJSONSchemaType.Properties == nil {
 				return nil, fmt.Errorf("Unable to find 'value' property of MAP type")
@@ -251,8 +257,11 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 
 		// Arrays:
 		case desc.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REPEATED:
-			jsonSchemaType.Items = &recursedJSONSchemaType
+			jsonSchemaType.Items = recursedJSONSchemaType
 			jsonSchemaType.Type = gojsonschema.TYPE_ARRAY
+
+		case pkgName == ".google.protobuf":
+			return recursedJSONSchemaType, nil
 
 		// Objects:
 		default:
@@ -285,21 +294,72 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 }
 
 // Converts a proto "MESSAGE" into a JSON-Schema:
-func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.DescriptorProto, pkgName string) (jsonschema.Type, error) {
-	if msg.Name != nil && pkgName == ".google.protobuf" {
-		if jsonType, ok := wellKnownTypes[*msg.Name]; ok {
-			schema := jsonschema.Type{
+func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.DescriptorProto, pkgName string) (*jsonschema.Type, error) {
+	if pkgName == ".google.protobuf" {
+		name := msg.GetName()
+
+		if jsonType, ok := wellKnownTypes[name]; ok {
+			return &jsonschema.Type{
 				OneOf: []*jsonschema.Type{
 					{Type: gojsonschema.TYPE_NULL},
 					{Type: jsonType},
 				},
-			}
-			return schema, nil
+			}, nil
 		}
+
+		switch name {
+		case "Duration":
+			return &jsonschema.Type{
+				OneOf: []*jsonschema.Type{
+					{Type: gojsonschema.TYPE_NULL},
+					{
+						Type:    gojsonschema.TYPE_STRING,
+						Format:  "regex",
+						Pattern: `^[0-9]+(\.[0-9]{0,9})?s$`,
+					},
+				},
+			}, nil
+
+		case "Empty":
+			return &jsonschema.Type{
+				OneOf: []*jsonschema.Type{
+					{Type: gojsonschema.TYPE_NULL},
+					{
+						Type:                 gojsonschema.TYPE_OBJECT,
+						AdditionalProperties: json.RawMessage("false"),
+					},
+				},
+			}, nil
+
+		case "Timestamp":
+			return &jsonschema.Type{
+				OneOf: []*jsonschema.Type{
+					{Type: gojsonschema.TYPE_NULL},
+					{
+						Type:    gojsonschema.TYPE_STRING,
+						Format:  "date-time",
+					},
+				},
+			}, nil
+
+		case "Value":
+			return &jsonschema.Type{
+				OneOf: []*jsonschema.Type{
+					{Type: gojsonschema.TYPE_NULL},
+					{Type: gojsonschema.TYPE_ARRAY},
+					{Type: gojsonschema.TYPE_BOOLEAN},
+					{Type: gojsonschema.TYPE_NUMBER},
+					{Type: gojsonschema.TYPE_OBJECT},
+					{Type: gojsonschema.TYPE_STRING},
+				},
+			}, nil
+		}
+
+		return nil, fmt.Errorf("unknown WKT: %s", name)
 	}
 
 	// Prepare a new jsonschema:
-	jsonSchemaType := jsonschema.Type{
+	jsonSchemaType := &jsonschema.Type{
 		Version: jsonschema.Version,
 	}
 	// Generate a description from src comments (if available)
