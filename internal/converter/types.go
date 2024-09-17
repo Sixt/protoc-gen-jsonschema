@@ -142,6 +142,8 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 			switch name {
 			case "NullValue":
 				return &jsonschema.Type{Type: gojsonschema.TYPE_NULL}, nil
+			default:
+				return nil, fmt.Errorf("unknown WKT enum: %s", name)
 			}
 		}
 
@@ -355,7 +357,7 @@ func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.Des
 			}, nil
 		}
 
-		return nil, fmt.Errorf("unknown WKT: %s", name)
+		return nil, fmt.Errorf("unknown WKT message: %s", name)
 	}
 
 	// Prepare a new jsonschema:
