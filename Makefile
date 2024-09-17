@@ -5,7 +5,7 @@ build:
 	go build -o bin/protoc-gen-jsonschema cmd/protoc-gen-jsonschema/main.go
 
 install:
-	GO111MODULE=on go get -u github.com/chrusty/protoc-gen-jsonschema/cmd/protoc-gen-jsonschema && go install github.com/chrusty/protoc-gen-jsonschema/cmd/protoc-gen-jsonschema
+	GO111MODULE=on go get -u github.com/sixt/protoc-gen-jsonschema/cmd/protoc-gen-jsonschema && go install github.com/sixt/protoc-gen-jsonschema/cmd/protoc-gen-jsonschema
 
 build_linux:
 	GOOS=linux GOARCH=amd64 go build -o protoc-gen-jsonschema.linux-amd64
