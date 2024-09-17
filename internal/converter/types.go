@@ -20,18 +20,34 @@ var (
 		types:    make(map[string]*descriptor.DescriptorProto),
 	}
 
-	wellKnownTypes = map[string]string{
-		"BoolValue":   gojsonschema.TYPE_BOOLEAN,
-		"BytesValue":  gojsonschema.TYPE_STRING,
-		"DoubleValue": gojsonschema.TYPE_NUMBER,
-		"FloatValue":  gojsonschema.TYPE_NUMBER,
-		"Int32Value":  gojsonschema.TYPE_INTEGER,
-		"Int64Value":  gojsonschema.TYPE_STRING,
-		"ListValue":   gojsonschema.TYPE_ARRAY,
-		"StringValue": gojsonschema.TYPE_STRING,
-		"Struct":      gojsonschema.TYPE_OBJECT,
-		"UInt32Value": gojsonschema.TYPE_INTEGER,
-		"UInt64Value": gojsonschema.TYPE_STRING,
+	wellKnownTypes = map[string]*jsonschema.Type{
+		// Simple WKTs
+		"BoolValue":   &jsonschema.Type{Type: gojsonschema.TYPE_BOOLEAN},
+		"BytesValue":  &jsonschema.Type{Type: gojsonschema.TYPE_STRING},
+		"DoubleValue": &jsonschema.Type{Type: gojsonschema.TYPE_NUMBER},
+		"FloatValue":  &jsonschema.Type{Type: gojsonschema.TYPE_NUMBER},
+		"Int32Value":  &jsonschema.Type{Type: gojsonschema.TYPE_INTEGER},
+		"Int64Value":  &jsonschema.Type{Type: gojsonschema.TYPE_STRING},
+		"ListValue":   &jsonschema.Type{Type: gojsonschema.TYPE_ARRAY},
+		"StringValue": &jsonschema.Type{Type: gojsonschema.TYPE_STRING},
+		"Struct":      &jsonschema.Type{Type: gojsonschema.TYPE_OBJECT},
+		"UInt32Value": &jsonschema.Type{Type: gojsonschema.TYPE_INTEGER},
+		"UInt64Value": &jsonschema.Type{Type: gojsonschema.TYPE_STRING},
+
+		// Complex WKTs
+		"Duration":    &jsonschema.Type{
+			Type:    gojsonschema.TYPE_STRING,
+			Format:  "regex",
+			Pattern: `^[0-9]+(\.[0-9]{0,9})?s$`,
+		},
+		"Empty": &jsonschema.Type{
+			Type:                 gojsonschema.TYPE_OBJECT,
+			AdditionalProperties: json.RawMessage("false"),
+		},
+		"Timestamp":   &jsonschema.Type{
+			Type:   gojsonschema.TYPE_STRING,
+			Format: "date-time",
+		},
 	}
 )
 
@@ -288,50 +304,16 @@ func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.Des
 	if pkgName == ".google.protobuf" {
 		name := msg.GetName()
 
-		if jsonType, ok := wellKnownTypes[name]; ok {
+		if jsonType := wellKnownTypes[name]; jsonType != nil {
 			return &jsonschema.Type{
 				OneOf: []*jsonschema.Type{
 					{Type: gojsonschema.TYPE_NULL},
-					{Type: jsonType},
+					jsonType,
 				},
 			}, nil
 		}
 
 		switch name {
-		case "Duration":
-			return &jsonschema.Type{
-				OneOf: []*jsonschema.Type{
-					{Type: gojsonschema.TYPE_NULL},
-					{
-						Type:    gojsonschema.TYPE_STRING,
-						Format:  "regex",
-						Pattern: `^[0-9]+(\.[0-9]{0,9})?s$`,
-					},
-				},
-			}, nil
-
-		case "Empty":
-			return &jsonschema.Type{
-				OneOf: []*jsonschema.Type{
-					{Type: gojsonschema.TYPE_NULL},
-					{
-						Type:                 gojsonschema.TYPE_OBJECT,
-						AdditionalProperties: json.RawMessage("false"),
-					},
-				},
-			}, nil
-
-		case "Timestamp":
-			return &jsonschema.Type{
-				OneOf: []*jsonschema.Type{
-					{Type: gojsonschema.TYPE_NULL},
-					{
-						Type:    gojsonschema.TYPE_STRING,
-						Format:  "date-time",
-					},
-				},
-			}, nil
-
 		case "Value":
 			return &jsonschema.Type{
 				OneOf: []*jsonschema.Type{
