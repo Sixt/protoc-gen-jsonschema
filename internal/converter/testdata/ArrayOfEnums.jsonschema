@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "properties": {
+        "description": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "stuff": {
+            "items": {
+                "enum": [
+                    "FOO",
+                    0,
+                    "BAR",
+                    1,
+                    "FIZZ",
+                    2,
+                    "BUZZ",
+                    3
+                ]
+            },
+            "oneOf": [
+                {
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        }
+    },
+    "additionalProperties": true,
+    "oneOf": [
+        {
+            "type": "object"
+        },
+        {
+            "type": "null"
+        }
+    ]
+}

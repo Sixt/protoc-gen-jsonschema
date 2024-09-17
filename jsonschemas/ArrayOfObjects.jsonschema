@@ -4,10 +4,10 @@
         "description": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ]
         },
@@ -18,50 +18,55 @@
                     "name": {
                         "oneOf": [
                             {
-                                "type": "null"
+                                "type": "string"
                             },
                             {
-                                "type": "string"
+                                "type": "null"
                             }
                         ]
                     },
                     "timestamp": {
                         "oneOf": [
                             {
-                                "type": "null"
+                                "type": "string"
                             },
                             {
-                                "type": "string"
+                                "type": "null"
                             }
                         ]
                     },
                     "id": {
                         "oneOf": [
                             {
-                                "type": "null"
+                                "type": "integer"
                             },
                             {
-                                "type": "integer"
+                                "pattern": "^-?[0-9]+$",
+                                "type": "string",
+                                "format": "regex"
+                            },
+                            {
+                                "type": "null"
                             }
                         ]
                     },
                     "rating": {
                         "oneOf": [
                             {
-                                "type": "null"
+                                "type": "number"
                             },
                             {
-                                "type": "number"
+                                "type": "null"
                             }
                         ]
                     },
                     "complete": {
                         "oneOf": [
                             {
-                                "type": "null"
+                                "type": "boolean"
                             },
                             {
-                                "type": "boolean"
+                                "type": "null"
                             }
                         ]
                     },
@@ -96,19 +101,19 @@
                 "additionalProperties": true,
                 "oneOf": [
                     {
-                        "type": "null"
+                        "type": "object"
                     },
                     {
-                        "type": "object"
+                        "type": "null"
                     }
                 ]
             },
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "array"
                 },
                 {
-                    "type": "array"
+                    "type": "null"
                 }
             ]
         }
@@ -116,10 +121,10 @@
     "additionalProperties": true,
     "oneOf": [
         {
-            "type": "null"
+            "type": "object"
         },
         {
-            "type": "object"
+            "type": "null"
         }
     ]
 }

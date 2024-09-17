@@ -4,10 +4,10 @@
         "string_value": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ]
         },
@@ -15,35 +15,243 @@
             "additionalProperties": {
                 "oneOf": [
                     {
-                        "type": "null"
+                        "type": "number"
                     },
                     {
-                        "type": "integer"
+                        "pattern": "^-?[0-9]+$",
+                        "type": "string",
+                        "format": "regex"
+                    },
+                    {
+                        "type": "null"
                     }
                 ]
             },
-            "type": "object"
+            "oneOf": [
+                {
+                    "type": "object"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "map_of_scalar_integers": {
             "additionalProperties": {
-                "type": "integer"
+                "oneOf": [
+                    {
+                        "type": "integer"
+                    },
+                    {
+                        "pattern": "^-?[0-9]+$",
+                        "type": "string",
+                        "format": "regex"
+                    },
+                    {
+                        "type": "null"
+                    }
+                ]
             },
-            "type": "object"
+            "oneOf": [
+                {
+                    "type": "object"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "list_of_integers": {
             "items": {
                 "oneOf": [
                     {
-                        "type": "null"
+                        "type": "number"
                     },
                     {
-                        "type": "integer"
+                        "pattern": "^-?[0-9]+$",
+                        "type": "string",
+                        "format": "regex"
+                    },
+                    {
+                        "type": "null"
                     }
                 ]
             },
-            "type": "array"
+            "oneOf": [
+                {
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "bool_value": {
+            "oneOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "bytes_value": {
+            "oneOf": [
+                {
+                    "pattern": "^[-_A-Za-z0-9+\\/]*={0,2}$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "double_value": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "duration": {
+            "oneOf": [
+                {
+                    "pattern": "^[0-9]+(\\.[0-9]{0,9})?s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "empty": {
+            "oneOf": [
+                {
+                    "type": "object"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "float_value": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "int32_value": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "pattern": "^-?[0-9]+$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "int64_value": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "pattern": "^-?[0-9]+$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "list_value": {
+            "oneOf": [
+                {
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "null_value": {
+            "type": "null"
+        },
+        "struct": {
+            "oneOf": [
+                {
+                    "type": "object"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "timestamp": {
+            "oneOf": [
+                {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "uint32_value": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "pattern": "^[0-9]+$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "uint64_value": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "pattern": "^[0-9]+$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "additionalProperties": true,
-    "type": "object"
+    "oneOf": [
+        {
+            "type": "object"
+        },
+        {
+            "type": "null"
+        }
+    ]
 }

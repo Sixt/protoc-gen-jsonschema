@@ -1,5 +1,11 @@
 syntax = "proto3";
 package samples;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/type.proto";
 import "google/protobuf/wrappers.proto";
 
 message WellKnown {
@@ -7,5 +13,21 @@ message WellKnown {
     map<int32, google.protobuf.Int32Value> map_of_integers = 2;
     map<int32, int32> map_of_scalar_integers = 3;
     repeated google.protobuf.Int32Value list_of_integers = 4;
+
+    google.protobuf.BoolValue bool_value = 5;
+    google.protobuf.BytesValue bytes_value = 6;
+    google.protobuf.DoubleValue double_value = 7;
+    google.protobuf.Duration duration = 8;
+    google.protobuf.Empty empty = 9;
+    google.protobuf.FloatValue float_value = 10;
+    google.protobuf.Int32Value int32_value = 11;
+    google.protobuf.Int64Value int64_value = 12;
+    google.protobuf.ListValue list_value = 13;
+    google.protobuf.NullValue null_value = 14;
+    google.protobuf.Struct struct = 15;
+    google.protobuf.Timestamp timestamp = 16;
+    google.protobuf.UInt32Value uint32_value = 17;
+    google.protobuf.UInt64Value uint64_value = 18;
+
 }
 

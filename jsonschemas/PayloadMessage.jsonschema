@@ -2,19 +2,59 @@
     "$schema": "http://json-schema.org/draft-04/schema#",
     "properties": {
         "name": {
-            "type": "string"
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "timestamp": {
-            "type": "string"
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "id": {
-            "type": "integer"
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "pattern": "^-?[0-9]+$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "rating": {
-            "type": "number"
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "complete": {
-            "type": "boolean"
+            "oneOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "topology": {
             "enum": [
@@ -37,10 +77,20 @@
                 },
                 {
                     "type": "integer"
+                },
+                {
+                    "type": "null"
                 }
             ]
         }
     },
     "additionalProperties": true,
-    "type": "object"
+    "oneOf": [
+        {
+            "type": "object"
+        },
+        {
+            "type": "null"
+        }
+    ]
 }

@@ -2,7 +2,14 @@
     "$schema": "http://json-schema.org/draft-04/schema#",
     "properties": {
         "description": {
-            "type": "string"
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "stuff": {
             "items": {
@@ -17,9 +24,23 @@
                     3
                 ]
             },
-            "type": "array"
+            "oneOf": [
+                {
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "additionalProperties": true,
-    "type": "object"
+    "oneOf": [
+        {
+            "type": "object"
+        },
+        {
+            "type": "null"
+        }
+    ]
 }

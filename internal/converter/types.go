@@ -5,221 +5,256 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/alecthomas/jsonschema"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"github.com/iancoleman/orderedmap"
 	"github.com/xeipuuv/gojsonschema"
 )
 
-var (
-	globalPkg = &ProtoPackage{
-		name:     "",
-		parent:   nil,
-		children: make(map[string]*ProtoPackage),
-		types:    make(map[string]*descriptor.DescriptorProto),
-	}
+var globalPkg = &ProtoPackage{
+	children: make(map[string]*ProtoPackage),
+	types:    make(map[string]*descriptorpb.DescriptorProto),
+}
 
-	wellKnownTypes = map[string]string{
-		"DoubleValue": gojsonschema.TYPE_NUMBER,
-		"FloatValue":  gojsonschema.TYPE_NUMBER,
-		"Int64Value":  gojsonschema.TYPE_STRING,
-		"UInt64Value": gojsonschema.TYPE_STRING,
-		"Int32Value":  gojsonschema.TYPE_INTEGER,
-		"UInt32Value": gojsonschema.TYPE_INTEGER,
-		"BoolValue":   gojsonschema.TYPE_BOOLEAN,
-		"StringValue": gojsonschema.TYPE_STRING,
-		"BytesValue":  gojsonschema.TYPE_STRING,
+var wellKnownTypes = map[string]string{
+	"BoolValue":   gojsonschema.TYPE_BOOLEAN,
+
+	// We _intentionally_ do not accept "NaN" and "Infinity".
+	// These usually reflect a bug in the generating code, and thus a useful signal.
+	"DoubleValue": gojsonschema.TYPE_NUMBER,
+	"FloatValue":  gojsonschema.TYPE_NUMBER,
+
+	"ListValue":   gojsonschema.TYPE_ARRAY,
+	"NullValue":   gojsonschema.TYPE_NULL,
+	"StringValue": gojsonschema.TYPE_STRING,
+	"Struct":      gojsonschema.TYPE_OBJECT,
+}
+
+var (
+	IntString = &jsonschema.Type{
+		Type: gojsonschema.TYPE_STRING,
+		Format: "regex",
+		Pattern: `^-?[0-9]+$`,
+	}
+	UIntString = &jsonschema.Type{
+		Type: gojsonschema.TYPE_STRING,
+		Format: "regex",
+		Pattern: `^?[0-9]+$`,
 	}
 )
 
-func (c *Converter) registerType(pkgName *string, msg *descriptor.DescriptorProto) {
+
+func (c *Converter) registerType(pkgName string, msg *descriptorpb.DescriptorProto) {
 	pkg := globalPkg
-	if pkgName != nil {
-		for _, node := range strings.Split(*pkgName, ".") {
-			if pkg == globalPkg && node == "" {
-				// Skips leading "."
-				continue
-			}
-			child, ok := pkg.children[node]
-			if !ok {
-				child = &ProtoPackage{
-					name:     pkg.name + "." + node,
-					parent:   pkg,
-					children: make(map[string]*ProtoPackage),
-					types:    make(map[string]*descriptor.DescriptorProto),
-				}
-				pkg.children[node] = child
-			}
-			pkg = child
+
+	for _, node := range strings.Split(pkgName, ".") {
+		if pkg == globalPkg && node == "" {
+			// Skips leading "."
+			continue
 		}
+
+		child, ok := pkg.children[node]
+		if !ok {
+			child = &ProtoPackage{
+				name:     pkg.name + "." + node,
+				parent:   pkg,
+				types:    make(map[string]*descriptorpb.DescriptorProto),
+			}
+
+			if pkg.children == nil {
+				pkg.children = make(map[string]*ProtoPackage)
+			}
+			pkg.children[node] = child
+		}
+
+		pkg = child
 	}
+
 	pkg.types[msg.GetName()] = msg
 }
 
-func (c *Converter) relativelyLookupNestedType(desc *descriptor.DescriptorProto, name string) (*descriptor.DescriptorProto, bool) {
-	components := strings.Split(name, ".")
+func (c *Converter) relativelyLookupNestedType(desc *descriptorpb.DescriptorProto, name string) (*descriptorpb.DescriptorProto, bool) {
 componentLoop:
-	for _, component := range components {
+	for _, component := range strings.Split(name, ".") {
 		for _, nested := range desc.GetNestedType() {
 			if nested.GetName() == component {
 				desc = nested
 				continue componentLoop
 			}
 		}
-		c.logger.WithField("component", component).WithField("description", desc.GetName()).Info("no such nested message")
+
+		c.Logger.WithField("component", component).WithField("description", desc.GetName()).Info("no such nested message")
 		return nil, false
 	}
+
 	return desc, true
 }
 
 // Convert a proto "field" (essentially a type-switch with some recursion):
-func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDescriptorProto, msg *descriptor.DescriptorProto) (*jsonschema.Type, error) {
+func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptorpb.FieldDescriptorProto, msg *descriptorpb.DescriptorProto) (*jsonschema.Type, error) {
 
 	// Prepare a new jsonschema.Type for our eventual return value:
-	jsonSchemaType := &jsonschema.Type{}
+	var typ jsonschema.Type
 
 	// Generate a description from src comments (if available)
 	if src := c.sourceInfo.GetField(desc); src != nil {
-		jsonSchemaType.Description = formatDescription(src)
+		typ.Description = formatDescription(src)
 	}
 
 	// Switch the types, and pick a JSONSchema equivalent:
 	switch desc.GetType() {
-	case descriptor.FieldDescriptorProto_TYPE_DOUBLE,
-		descriptor.FieldDescriptorProto_TYPE_FLOAT:
-		if c.AllowNullValues {
-			jsonSchemaType.OneOf = []*jsonschema.Type{
+	case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
+		if true {
+			typ.OneOf = []*jsonschema.Type{
+				{Type: gojsonschema.TYPE_BOOLEAN},
 				{Type: gojsonschema.TYPE_NULL},
+			}
+		} else {
+			typ.Type = gojsonschema.TYPE_BOOLEAN
+		}
+
+	case descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, descriptorpb.FieldDescriptorProto_TYPE_FLOAT:
+		if true {
+			typ.OneOf = []*jsonschema.Type{
 				{Type: gojsonschema.TYPE_NUMBER},
+				{Type: gojsonschema.TYPE_NULL},
 			}
 		} else {
-			jsonSchemaType.Type = gojsonschema.TYPE_NUMBER
+			typ.Type = gojsonschema.TYPE_NUMBER
 		}
 
-	case descriptor.FieldDescriptorProto_TYPE_INT32,
-		descriptor.FieldDescriptorProto_TYPE_UINT32,
-		descriptor.FieldDescriptorProto_TYPE_FIXED32,
-		descriptor.FieldDescriptorProto_TYPE_SFIXED32,
-		descriptor.FieldDescriptorProto_TYPE_SINT32:
-		if c.AllowNullValues {
-			jsonSchemaType.OneOf = []*jsonschema.Type{
-				{Type: gojsonschema.TYPE_NULL},
+	case descriptorpb.FieldDescriptorProto_TYPE_SINT32, descriptorpb.FieldDescriptorProto_TYPE_UINT32,
+		descriptorpb.FieldDescriptorProto_TYPE_SFIXED32, descriptorpb.FieldDescriptorProto_TYPE_FIXED32,
+		descriptorpb.FieldDescriptorProto_TYPE_INT32:
+		if true {
+			typ.OneOf = []*jsonschema.Type{
 				{Type: gojsonschema.TYPE_INTEGER},
-			}
-		} else {
-			jsonSchemaType.Type = gojsonschema.TYPE_INTEGER
-		}
-
-	case descriptor.FieldDescriptorProto_TYPE_INT64,
-		descriptor.FieldDescriptorProto_TYPE_UINT64,
-		descriptor.FieldDescriptorProto_TYPE_FIXED64,
-		descriptor.FieldDescriptorProto_TYPE_SFIXED64,
-		descriptor.FieldDescriptorProto_TYPE_SINT64:
-		jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_INTEGER})
-		if !c.DisallowBigIntsAsStrings {
-			jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_STRING})
-		}
-		if c.AllowNullValues {
-			jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_NULL})
-		}
-
-	case descriptor.FieldDescriptorProto_TYPE_STRING,
-		descriptor.FieldDescriptorProto_TYPE_BYTES:
-		if c.AllowNullValues {
-			jsonSchemaType.OneOf = []*jsonschema.Type{
+				IntString,
 				{Type: gojsonschema.TYPE_NULL},
-				{Type: gojsonschema.TYPE_STRING},
 			}
 		} else {
-			jsonSchemaType.Type = gojsonschema.TYPE_STRING
+			typ.Type = gojsonschema.TYPE_INTEGER
 		}
 
-	case descriptor.FieldDescriptorProto_TYPE_ENUM:
-		jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_STRING})
-		jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_INTEGER})
-		if c.AllowNullValues {
-			jsonSchemaType.OneOf = append(jsonSchemaType.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_NULL})
+	case descriptorpb.FieldDescriptorProto_TYPE_SINT64, descriptorpb.FieldDescriptorProto_TYPE_UINT64,
+		descriptorpb.FieldDescriptorProto_TYPE_SFIXED64, descriptorpb.FieldDescriptorProto_TYPE_FIXED64,
+		descriptorpb.FieldDescriptorProto_TYPE_INT64:
+
+		typ.OneOf = []*jsonschema.Type{
+			{Type: gojsonschema.TYPE_STRING},
+			UIntString,
+			{Type: gojsonschema.TYPE_INTEGER},
 		}
 
+		if true {
+			typ.OneOf = append(typ.OneOf,
+				&jsonschema.Type{Type: gojsonschema.TYPE_NULL},
+			)
+		}
+
+	case descriptorpb.FieldDescriptorProto_TYPE_STRING,
+		descriptorpb.FieldDescriptorProto_TYPE_BYTES:
+		if true {
+			typ.OneOf = []*jsonschema.Type{
+				{Type: gojsonschema.TYPE_STRING},
+				{Type: gojsonschema.TYPE_NULL},
+			}
+		} else {
+			typ.Type = gojsonschema.TYPE_STRING
+		}
+
+	case descriptorpb.FieldDescriptorProto_TYPE_ENUM:
+		if strings.HasPrefix(desc.GetTypeName(), ".google.protobuf.") {
+			switch desc.GetTypeName() {
+			case ".google.protobuf.NullValue":
+				return &jsonschema.Type{Type: gojsonschema.TYPE_NULL}, nil
+			}
+		}
+
+		c.Logger.WithFields(logrus.Fields{
+			"name":     desc.GetTypeName(),
+		}).Error("enum value")
+
+		typ.OneOf = []*jsonschema.Type{
+			{Type: gojsonschema.TYPE_STRING},
+			{Type: gojsonschema.TYPE_INTEGER},
+		}
+
+		if true {
+			typ.OneOf = append(typ.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_NULL})
+		}
+
+		name := msg.GetName()
+		typName := desc.GetTypeName()
+		
 		// Go through all the enums we have, see if we can match any to this field by name:
-		for _, enumDescriptor := range msg.GetEnumType() {
+		for _, enumDesc := range msg.GetEnumType() {
 
 			// Each one has several values:
-			for _, enumValue := range enumDescriptor.Value {
+			for _, enumVal := range enumDesc.Value {
 
 				// Figure out the entire name of this field:
-				fullFieldName := fmt.Sprintf(".%v.%v", *msg.Name, *enumDescriptor.Name)
+				fullFieldName := fmt.Sprintf(".%v.%v", name, enumDesc.GetName())
 
 				// If we find ENUM values for this field then put them into the JSONSchema list of allowed ENUM values:
-				if strings.HasSuffix(desc.GetTypeName(), fullFieldName) {
-					jsonSchemaType.Enum = append(jsonSchemaType.Enum, enumValue.Name)
-					jsonSchemaType.Enum = append(jsonSchemaType.Enum, enumValue.Number)
+				if strings.HasSuffix(typName, fullFieldName) {
+					typ.Enum = append(typ.Enum, enumVal.Name)
+					typ.Enum = append(typ.Enum, enumVal.Number)
 				}
 			}
 		}
 
-	case descriptor.FieldDescriptorProto_TYPE_BOOL:
-		if c.AllowNullValues {
-			jsonSchemaType.OneOf = []*jsonschema.Type{
-				{Type: gojsonschema.TYPE_NULL},
-				{Type: gojsonschema.TYPE_BOOLEAN},
-			}
-		} else {
-			jsonSchemaType.Type = gojsonschema.TYPE_BOOLEAN
+	case descriptorpb.FieldDescriptorProto_TYPE_GROUP, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:
+		typ.Type = gojsonschema.TYPE_OBJECT
+
+		if desc.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL {
+			typ.AdditionalProperties = []byte("true")
 		}
 
-	case descriptor.FieldDescriptorProto_TYPE_GROUP,
-		descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		jsonSchemaType.Type = gojsonschema.TYPE_OBJECT
-		if desc.GetLabel() == descriptor.FieldDescriptorProto_LABEL_OPTIONAL {
-			jsonSchemaType.AdditionalProperties = []byte("true")
-		}
-		if desc.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
-			jsonSchemaType.AdditionalProperties = []byte("false")
+		if desc.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REQUIRED {
+			typ.AdditionalProperties = []byte("false")
 		}
 
 	default:
-		return nil, fmt.Errorf("unrecognized field type: %s", desc.GetType().String())
+		return nil, fmt.Errorf("unrecognized field type: %s", desc.GetType())
 	}
 
 	// Recurse array of primitive types:
-	if desc.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REPEATED && jsonSchemaType.Type != gojsonschema.TYPE_OBJECT {
-		jsonSchemaType.Items = &jsonschema.Type{}
+	if desc.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED && typ.Type != gojsonschema.TYPE_OBJECT {
+		typ.Items = new(jsonschema.Type)
 
-		if len(jsonSchemaType.Enum) > 0 {
-			jsonSchemaType.Items.Enum = jsonSchemaType.Enum
-			jsonSchemaType.Enum = nil
-			jsonSchemaType.Items.OneOf = nil
+		if len(typ.Enum) > 0 {
+			typ.Items.Enum = typ.Enum
+			typ.Items.OneOf = nil
+			typ.Enum = nil
 		} else {
-			jsonSchemaType.Items.Type = jsonSchemaType.Type
-			jsonSchemaType.Items.OneOf = jsonSchemaType.OneOf
+			typ.Items.Type = typ.Type
+			typ.Items.OneOf = typ.OneOf
 		}
 
-		if c.AllowNullValues {
-			jsonSchemaType.OneOf = []*jsonschema.Type{
-				{Type: gojsonschema.TYPE_NULL},
+		if true {
+			typ.OneOf = []*jsonschema.Type{
 				{Type: gojsonschema.TYPE_ARRAY},
+				{Type: gojsonschema.TYPE_NULL},
 			}
 		} else {
-			jsonSchemaType.Type = gojsonschema.TYPE_ARRAY
-			jsonSchemaType.OneOf = []*jsonschema.Type{}
+			typ.Type = gojsonschema.TYPE_ARRAY
 		}
 
-		return jsonSchemaType, nil
+		return &typ, nil
 	}
 
 	// Recurse nested objects / arrays of objects (if necessary):
-	if jsonSchemaType.Type == gojsonschema.TYPE_OBJECT {
+	if typ.Type == gojsonschema.TYPE_OBJECT {
 
 		recordType, pkgName, ok := c.lookupType(curPkg, desc.GetTypeName())
 		if !ok {
-			return nil, fmt.Errorf("no such message type named %s", desc.GetTypeName())
+			return nil, fmt.Errorf("no such message type: %s", desc.GetTypeName())
 		}
 
 		// Recurse the recordType:
-		recursedJSONSchemaType, err := c.convertMessageType(curPkg, recordType, pkgName)
-
+		recursedTyp, err := c.convertMessageType(curPkg, recordType, pkgName)
 		if err != nil {
 			return nil, err
 		}
@@ -229,122 +264,234 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 
 		// Maps:
 		case recordType.Options.GetMapEntry():
-			c.logger.
-				WithField("field_name", recordType.GetName()).
-				WithField("msg_name", *msg.Name).
-				Tracef("Is a map")
+			c.Logger.WithFields(logrus.Fields{
+				"field_name": recordType.GetName(),
+				"msg_name":   msg.GetName(),
+			}).Tracef("Is a map")
+
 			// Make sure we have a "value":
-			if recursedJSONSchemaType.Properties == nil {
+			if recursedTyp.Properties == nil {
 				return nil, fmt.Errorf("Unable to find 'value' property of MAP type")
 			}
-			value, ok := recursedJSONSchemaType.Properties.Get("value")
+
+			value, ok := recursedTyp.Properties.Get("value")
 			if !ok {
 				return nil, fmt.Errorf("Unable to find 'value' property of MAP type")
 			}
 
 			// Marshal the "value" properties to JSON (because that's how we can pass on AdditionalProperties):
-			additionalPropertiesJSON, err := json.Marshal(value)
+			data, err := json.Marshal(value)
 			if err != nil {
 				return nil, err
 			}
-			jsonSchemaType.AdditionalProperties = additionalPropertiesJSON
+
+			typ.AdditionalProperties = data
 
 		// Arrays:
-		case desc.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REPEATED:
-			jsonSchemaType.Items = &recursedJSONSchemaType
-			jsonSchemaType.Type = gojsonschema.TYPE_ARRAY
+		case desc.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED:
+			typ.Items = recursedTyp
+			typ.Type = gojsonschema.TYPE_ARRAY
+
+		case msg.GetName() != "" && pkgName == ".google.protobuf":
+			return recursedTyp, nil
 
 		// Objects:
 		default:
 			isPrimitive := true
-			for _, t := range recursedJSONSchemaType.OneOf {
+
+			for _, t := range typ.OneOf {
 				if t.Type == gojsonschema.TYPE_OBJECT || t.Type == gojsonschema.TYPE_ARRAY {
 					isPrimitive = false
 				}
 			}
-			if recursedJSONSchemaType.OneOf != nil && isPrimitive {
-				jsonSchemaType.AdditionalProperties = nil
-				jsonSchemaType.Type = ""
-				jsonSchemaType.OneOf = recursedJSONSchemaType.OneOf
+
+			if len(typ.OneOf) != 0 && isPrimitive {
+				typ.OneOf = recursedTyp.OneOf
+				typ.AdditionalProperties = nil
+				typ.Type = ""
+
 			} else {
-				jsonSchemaType.Properties = recursedJSONSchemaType.Properties
+				typ.Properties = recursedTyp.Properties
 			}
 		}
 
 		// Optionally allow NULL values, if not already nullable
-		if c.AllowNullValues && jsonSchemaType.OneOf == nil {
-			jsonSchemaType.OneOf = []*jsonschema.Type{
+		if true && len(typ.OneOf) == 0 {
+			typ.OneOf = []*jsonschema.Type{
+				{Type: typ.Type},
 				{Type: gojsonschema.TYPE_NULL},
-				{Type: jsonSchemaType.Type},
 			}
-			jsonSchemaType.Type = ""
+			typ.Type = ""
 		}
 	}
 
-	return jsonSchemaType, nil
+	return &typ, nil
+}
+
+func convertWKT(name string) (*jsonschema.Type, error) {
+
+	if typ := wellKnownTypes[name]; typ != "" {
+		return &jsonschema.Type{Type: typ}, nil
+	}
+
+	switch name {
+	case "BytesValue":
+		return &jsonschema.Type{
+			Type: gojsonschema.TYPE_STRING,
+			Format: "regex",
+			// must accept standard or URL-safe base64 with or without padding.
+			Pattern: `^[-_A-Za-z0-9+\/]*={0,2}$`,
+		}, nil
+
+	case "Duration":
+		return &jsonschema.Type{
+			Type: gojsonschema.TYPE_STRING,
+			Format: "regex",
+			// must accept any fractional digits (also none) as long as they fit into nano-seconds.
+			// the suffix "s" is required.
+			Pattern: `^[0-9]+(\.[0-9]{0,9})?s$`,
+		}, nil
+
+	case "Empty":
+		return &jsonschema.Type{
+			Type:          gojsonschema.TYPE_OBJECT,
+			// This won't work, because it has 'omitempty' on it.
+			MaxProperties: 0,
+		}, nil
+
+	case "Int64Value", "Int32Value":
+		return &jsonschema.Type{
+			OneOf: []*jsonschema.Type{
+				{ Type: gojsonschema.TYPE_NUMBER },
+				{
+					Type: gojsonschema.TYPE_STRING,
+					Format: "regex",
+					Pattern: `^-?[0-9]+$`,
+				},
+			},
+		}, nil
+		
+	case "Timestamp":
+		return &jsonschema.Type{
+			Type: gojsonschema.TYPE_STRING,
+			Format: "date-time",
+		}, nil
+
+	case "UInt64Value", "UInt32Value":
+		return &jsonschema.Type{
+			OneOf: []*jsonschema.Type{
+				{ Type: gojsonschema.TYPE_NUMBER },
+				{
+					Type: gojsonschema.TYPE_STRING,
+					Format: "regex",
+					Pattern: `^[0-9]+$`,
+				},
+			},
+		}, nil
+	
+	case "Value":
+		return &jsonschema.Type{
+			OneOf: []*jsonschema.Type{
+				{Type: gojsonschema.TYPE_ARRAY},
+				{Type: gojsonschema.TYPE_BOOLEAN},
+				{Type: gojsonschema.TYPE_NUMBER},
+				{Type: gojsonschema.TYPE_OBJECT},
+				{Type: gojsonschema.TYPE_STRING},
+			},
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unknown wkt: %s", name)
+	}
 }
 
 // Converts a proto "MESSAGE" into a JSON-Schema:
-func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.DescriptorProto, pkgName string) (jsonschema.Type, error) {
-	if msg.Name != nil && pkgName == ".google.protobuf" {
-		if jsonType, ok := wellKnownTypes[*msg.Name]; ok {
-			schema := jsonschema.Type{
-				OneOf: []*jsonschema.Type{
-					{Type: gojsonschema.TYPE_NULL},
-					{Type: jsonType},
-				},
-			}
-			return schema, nil
+func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptorpb.DescriptorProto, pkgName string) (*jsonschema.Type, error) {
+	if name := msg.GetName(); name != "" && pkgName == ".google.protobuf" {
+		typ, err := convertWKT(name)
+		if err != nil {
+			return nil, err
 		}
+
+		switch {
+		case typ.Type == gojsonschema.TYPE_NULL:
+			return typ, nil
+
+		case len(typ.OneOf) > 0:
+			typ.OneOf = append(typ.OneOf, &jsonschema.Type{Type: gojsonschema.TYPE_NULL})
+			return typ, nil
+		}
+
+		return &jsonschema.Type{
+			OneOf: []*jsonschema.Type{
+				typ,
+				{Type: gojsonschema.TYPE_NULL},
+			},
+		}, nil
 	}
 
 	// Prepare a new jsonschema:
-	jsonSchemaType := jsonschema.Type{
+	typ := jsonschema.Type{
 		Version: jsonschema.Version,
 	}
+
 	// Generate a description from src comments (if available)
 	if src := c.sourceInfo.GetMessage(msg); src != nil {
-		jsonSchemaType.Description = formatDescription(src)
+		typ.Description = formatDescription(src)
 	}
 
 	// Optionally allow NULL values:
-	if c.AllowNullValues {
-		jsonSchemaType.OneOf = []*jsonschema.Type{
-			{Type: gojsonschema.TYPE_NULL},
+	if true {
+		typ.OneOf = []*jsonschema.Type{
 			{Type: gojsonschema.TYPE_OBJECT},
+			{Type: gojsonschema.TYPE_NULL},
 		}
 	} else {
-		jsonSchemaType.Type = gojsonschema.TYPE_OBJECT
+		typ.Type = gojsonschema.TYPE_OBJECT
 	}
 
 	// disallowAdditionalProperties will prevent validation where extra fields are found (outside of the schema):
 	if c.DisallowAdditionalProperties {
-		jsonSchemaType.AdditionalProperties = []byte("false")
+		typ.AdditionalProperties = []byte("false")
+
 	} else {
-		jsonSchemaType.AdditionalProperties = []byte("true")
+		typ.AdditionalProperties = []byte("true")
 	}
 
-	c.logger.WithField("message_str", proto.MarshalTextString(msg)).Trace("Converting message")
+	c.Logger.WithField("message_str", msg.String()).Trace("Converting message")
+
 	for _, fieldDesc := range msg.GetField() {
-		recursedJSONSchemaType, err := c.convertField(curPkg, fieldDesc, msg)
+
+		recursedTyp, err := c.convertField(curPkg, fieldDesc, msg)
 		if err != nil {
-			c.logger.WithError(err).WithField("field_name", fieldDesc.GetName()).WithField("message_name", msg.GetName()).Error("Failed to convert field")
-			return jsonSchemaType, err
+			c.Logger.WithError(err).WithFields(logrus.Fields{
+				"field_name": fieldDesc.GetName(),
+				"message_name": msg.GetName(),
+			}).Error("Failed to convert field")
+
+			return nil, err
 		}
-		c.logger.WithField("field_name", fieldDesc.GetName()).WithField("type", recursedJSONSchemaType.Type).Debug("Converted field")
-		if jsonSchemaType.Properties == nil {
-			jsonSchemaType.Properties = orderedmap.New()
+
+		c.Logger.WithFields(logrus.Fields{
+			"field_name": fieldDesc.GetName(),
+			"type": recursedTyp.Type,
+		}).Debug("Converted field")
+
+		if typ.Properties == nil {
+			typ.Properties = orderedmap.New()
 		}
-		jsonSchemaType.Properties.Set(fieldDesc.GetName(), recursedJSONSchemaType)
+
+		typ.Properties.Set(fieldDesc.GetName(), recursedTyp)
+
 		if c.UseProtoAndJSONFieldnames && fieldDesc.GetName() != fieldDesc.GetJsonName() {
-			jsonSchemaType.Properties.Set(fieldDesc.GetJsonName(), recursedJSONSchemaType)
+			typ.Properties.Set(fieldDesc.GetJsonName(), recursedTyp)
 		}
 	}
 
-	return jsonSchemaType, nil
+	return &typ, nil
 }
 
-func formatDescription(sl *descriptor.SourceCodeInfo_Location) string {
+func formatDescription(sl *descriptorpb.SourceCodeInfo_Location) string {
 	var lines []string
 	for _, str := range sl.GetLeadingDetachedComments() {
 		if s := strings.TrimSpace(str); s != "" {

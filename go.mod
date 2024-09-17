@@ -1,19 +1,23 @@
 module github.com/sixt/protoc-gen-jsonschema
 
 require (
-	github.com/alecthomas/jsonschema v0.0.0-20200127222324-dd4542c1f589
-	github.com/golang/protobuf v1.3.2
-	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0
-	github.com/sirupsen/logrus v1.4.2
-	github.com/stretchr/testify v1.4.0
-	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
+	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
+	github.com/golang/protobuf v1.5.4
+	github.com/google/go-cmp v0.5.5
+	github.com/iancoleman/orderedmap v0.3.0
+	github.com/sirupsen/logrus v1.9.3
+	github.com/stretchr/testify v1.9.0
+	github.com/xeipuuv/gojsonschema v1.2.0
+	google.golang.org/protobuf v1.34.2
+)
+
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xeipuuv/gojsonschema v1.1.0
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace (
-	github.com/alecthomas/jsonschema => github.com/alecthomas/jsonschema v0.0.0-20200127222324-dd4542c1f589
-	github.com/iancoleman/orderedmap => github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0
-)
-
-go 1.13
+go 1.23

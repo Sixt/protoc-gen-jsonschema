@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/golang/protobuf/proto"
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/pluginpb"
 	"github.com/sirupsen/logrus"
 	"github.com/sixt/protoc-gen-jsonschema/internal/converter"
 )
@@ -25,18 +25,19 @@ func main() {
 	logger.SetOutput(os.Stderr)
 
 	// Use the logger to make a Converter:
-	protoConverter := converter.New(logger)
+	protoConverter := &converter.Converter{
+		Logger: logger,
+	}
 
 	// Convert the generator request:
-	var ok = true
+	var failed bool
 	logger.Debug("Processing code generator request")
 	res, err := protoConverter.ConvertFrom(os.Stdin)
 	if err != nil {
-		ok = false
+		failed = true
 		if res == nil {
-			message := fmt.Sprintf("Failed to read input: %v", err)
-			res = &plugin.CodeGeneratorResponse{
-				Error: &message,
+			res = &pluginpb.CodeGeneratorResponse{
+				Error: proto.String(fmt.Sprint("Failed to read input:", err)),
 			}
 		}
 	}
@@ -46,15 +47,16 @@ func main() {
 	if err != nil {
 		logger.WithError(err).Fatal("Cannot marshal response")
 	}
+
 	_, err = os.Stdout.Write(data)
 	if err != nil {
 		logger.WithError(err).Fatal("Failed to write response")
 	}
 
-	if ok {
-		logger.Debug("Succeeded to process code generator request")
-	} else {
+	if failed {
 		logger.Warn("Failed to process code generator but successfully sent the error to protoc")
 		os.Exit(1)
 	}
+
+	logger.Debug("Succeeded to process code generator request")
 }

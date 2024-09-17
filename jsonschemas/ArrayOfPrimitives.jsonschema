@@ -4,10 +4,10 @@
         "description": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ]
         },
@@ -15,19 +15,24 @@
             "items": {
                 "oneOf": [
                     {
-                        "type": "null"
+                        "type": "integer"
                     },
                     {
-                        "type": "integer"
+                        "pattern": "^-?[0-9]+$",
+                        "type": "string",
+                        "format": "regex"
+                    },
+                    {
+                        "type": "null"
                     }
                 ]
             },
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "array"
                 },
                 {
-                    "type": "array"
+                    "type": "null"
                 }
             ]
         },
@@ -35,10 +40,15 @@
             "items": {
                 "oneOf": [
                     {
-                        "type": "integer"
+                        "type": "string"
                     },
                     {
-                        "type": "string"
+                        "pattern": "^?[0-9]+$",
+                        "type": "string",
+                        "format": "regex"
+                    },
+                    {
+                        "type": "integer"
                     },
                     {
                         "type": "null"
@@ -47,10 +57,10 @@
             },
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "array"
                 },
                 {
-                    "type": "array"
+                    "type": "null"
                 }
             ]
         },
@@ -58,29 +68,34 @@
             "items": {
                 "oneOf": [
                     {
-                        "type": "null"
+                        "type": "string"
                     },
                     {
-                        "type": "string"
+                        "type": "null"
                     }
                 ]
             },
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "array"
                 },
                 {
-                    "type": "array"
+                    "type": "null"
                 }
             ]
         },
         "big_number": {
             "oneOf": [
                 {
-                    "type": "integer"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "pattern": "^?[0-9]+$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                {
+                    "type": "integer"
                 },
                 {
                     "type": "null"
@@ -91,10 +106,10 @@
     "additionalProperties": true,
     "oneOf": [
         {
-            "type": "null"
+            "type": "object"
         },
         {
-            "type": "object"
+            "type": "null"
         }
     ]
 }
