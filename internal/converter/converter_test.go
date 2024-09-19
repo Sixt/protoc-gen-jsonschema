@@ -11,9 +11,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"github.com/google/go-cmp/cmp"
 	"github.com/sirupsen/logrus"
 	"github.com/sixt/protoc-gen-jsonschema/internal/converter/testdata"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -76,16 +76,21 @@ func testConvertSampleProto(t *testing.T, sampleProto sampleProto) {
 
 	// Perform the conversion:
 	response, err := protoConverter.convert(&codeGeneratorRequest)
-	assert.NoError(t, err, "Unable to convert sample proto file (%v)", sampleProtoFileName)
-	assert.Equal(t, len(sampleProto.ExpectedJSONSchema), len(response.File), "Incorrect number of JSON-Schema files returned for sample proto file (%v)", sampleProtoFileName)
-	if len(sampleProto.ExpectedJSONSchema) != len(response.File) {
-		t.Fail()
-	} else {
-		for responseFileIndex, responseFile := range response.File {
-			assert.Equal(t, sampleProto.ExpectedJSONSchema[responseFileIndex], *responseFile.Content, "Incorrect JSON-Schema returned for sample proto file (%v)", sampleProtoFileName)
-		}
+	if err != nil {
+		t.Fatal(err)
 	}
 
+	if len(response.File) != len(sampleProto.ExpectedJSONSchema) {
+		t.Fatalf("Incorrect number of JSON-Schema files returned for sample proto file (%v)", sampleProtoFileName)
+	}
+
+	for i, file := range response.File {
+		want := sampleProto.ExpectedJSONSchema[i]
+
+		if diff := cmp.Diff(file.GetContent(), want); diff != "" {
+			t.Errorf("differences: %s\n%s", file.GetName(), diff)
+		}
+	}
 }
 
 func configureSampleProtos() {

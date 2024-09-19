@@ -81,7 +81,7 @@ const WellKnown = `{
                     "type": "null"
                 },
                 {
-                    "pattern": "^[0-9]+(\\.[0-9]{0,9})?s$",
+                    "pattern": "^-?[0-9]+(\\.[0-9]{0,9})?s$",
                     "type": "string",
                     "format": "regex"
                 }

@@ -279,8 +279,8 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 			jsonSchemaType.Type = gojsonschema.TYPE_ARRAY
 
 		case pkgName == ".google.protobuf":
-			jsonSchemaType.Properties = recursedJSONSchemaType.Type
-			jsonSchemaType.Properties = recursedJSONSchemaType.OneOf
+			jsonSchemaType.Type = recursedJSONSchemaType.Type
+			jsonSchemaType.OneOf = recursedJSONSchemaType.OneOf
 			return recursedJSONSchemaType, nil
 
 		// Objects:
@@ -303,6 +303,35 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 
 // Converts a proto "MESSAGE" into a JSON-Schema:
 func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.DescriptorProto, pkgName string) (*jsonschema.Type, error) {
+	if pkgName == ".google.protobuf" {
+		name := msg.GetName()
+
+		if jsonType := wellKnownTypes[name]; jsonType != nil {
+			return &jsonschema.Type{
+				OneOf: []*jsonschema.Type{
+					{Type: gojsonschema.TYPE_NULL},
+					jsonType,
+				},
+			}, nil
+		}
+
+		switch name {
+		case "Value":
+			return &jsonschema.Type{
+				OneOf: []*jsonschema.Type{
+					{Type: gojsonschema.TYPE_NULL},
+					{Type: gojsonschema.TYPE_ARRAY},
+					{Type: gojsonschema.TYPE_BOOLEAN},
+					{Type: gojsonschema.TYPE_NUMBER},
+					{Type: gojsonschema.TYPE_OBJECT},
+					{Type: gojsonschema.TYPE_STRING},
+				},
+			}, nil
+		}
+
+		return nil, fmt.Errorf("unknown WKT message: %s", name)
+	}
+
 	// Prepare a new jsonschema:
 	jsonSchemaType := &jsonschema.Type{
 		Version: jsonschema.Version,
@@ -311,33 +340,6 @@ func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.Des
 	// Generate a description from src comments (if available)
 	if src := c.sourceInfo.GetMessage(msg); src != nil {
 		jsonSchemaType.Description = formatDescription(src)
-	}
-
-	if pkgName == ".google.protobuf" {
-		name := msg.GetName()
-
-		if jsonType := wellKnownTypes[name]; jsonType != nil {
-			jsonSchemaType.OneOf = []*jsonschema.Type{
-				{Type: gojsonschema.TYPE_NULL},
-				jsonType,
-			}
-			return jsonSchemaType, nil
-		}
-
-		switch name {
-		case "Value":
-			jsonSchemaType.OneOf = []*jsonschema.Type{
-				{Type: gojsonschema.TYPE_NULL},
-				{Type: gojsonschema.TYPE_ARRAY},
-				{Type: gojsonschema.TYPE_BOOLEAN},
-				{Type: gojsonschema.TYPE_NUMBER},
-				{Type: gojsonschema.TYPE_OBJECT},
-				{Type: gojsonschema.TYPE_STRING},
-			}
-			return jsonSchemaType, nil
-		}
-
-		return nil, fmt.Errorf("unknown WKT message: %s", name)
 	}
 
 	// Optionally allow NULL values:
