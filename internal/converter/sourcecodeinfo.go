@@ -6,7 +6,8 @@ import (
 )
 
 // Protobuf tag values for relevant message fields. Full list here:
-//   https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/descriptor.proto
+//
+//	https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/descriptor.proto
 const (
 	tag_FileDescriptor_messageType int32 = 4
 	tag_FileDescriptor_enumType    int32 = 5

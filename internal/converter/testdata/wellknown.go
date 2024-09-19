@@ -44,6 +44,144 @@ const WellKnown = `{
                 ]
             },
             "type": "array"
+        },
+        "bool_value": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "boolean"
+                }
+            ],
+            "description": "description"
+        },
+        "bytes_value": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ]
+        },
+        "double_value": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "number"
+                }
+            ]
+        },
+        "duration": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "pattern": "^-?[0-9]+(\\.[0-9]{0,9})?s$",
+                    "type": "string",
+                    "format": "regex"
+                }
+            ]
+        },
+        "empty": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "additionalProperties": false,
+                    "type": "object"
+                }
+            ]
+        },
+        "float_value": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "number"
+                }
+            ]
+        },
+        "int32_value": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "integer"
+                }
+            ]
+        },
+        "int64_value": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ]
+        },
+        "list_value": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "array"
+                }
+            ]
+        },
+        "null_value": {
+            "type": "null"
+        },
+        "struct": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ]
+        },
+        "timestamp": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            ]
+        },
+        "uint32_value": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "integer"
+                }
+            ]
+        },
+        "uint64_value": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ]
         }
     },
     "additionalProperties": true,
