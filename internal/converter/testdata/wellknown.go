@@ -53,7 +53,8 @@ const WellKnown = `{
                 {
                     "type": "boolean"
                 }
-            ]
+            ],
+            "description": "description"
         },
         "bytes_value": {
             "oneOf": [

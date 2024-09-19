@@ -281,7 +281,8 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 		case pkgName == ".google.protobuf":
 			jsonSchemaType.Type = recursedJSONSchemaType.Type
 			jsonSchemaType.OneOf = recursedJSONSchemaType.OneOf
-			return recursedJSONSchemaType, nil
+			jsonSchemaType.AdditionalProperties = nil
+			return jsonSchemaType, nil
 
 		// Objects:
 		default:

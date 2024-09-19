@@ -13,7 +13,7 @@ message WellKnown {
     map<int32, int32> map_of_scalar_integers = 3;
     repeated google.protobuf.Int32Value list_of_integers = 4;
 
-    google.protobuf.BoolValue bool_value = 5;
+    google.protobuf.BoolValue bool_value = 5; // description
     google.protobuf.BytesValue bytes_value = 6;
     google.protobuf.DoubleValue double_value = 7;
     google.protobuf.Duration duration = 8;
