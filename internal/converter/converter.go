@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/alecthomas/jsonschema"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
+	descriptor "google.golang.org/protobuf/types/descriptorpb"
+	plugin "google.golang.org/protobuf/types/pluginpb"
 )
 
 // Converter is everything you need to convert protos to JSONSchemas:
@@ -136,9 +136,11 @@ func (c *Converter) convertFile(file *descriptor.FileDescriptorProto) ([]*plugin
 			}
 
 			// Add a response:
+			name := jsonSchemaFileName
+			content := string(jsonSchemaJSON)
 			resFile := &plugin.CodeGeneratorResponse_File{
-				Name:    proto.String(jsonSchemaFileName),
-				Content: proto.String(string(jsonSchemaJSON)),
+				Name:    &name,
+				Content: &content,
 			}
 			response = append(response, resFile)
 		}
@@ -167,9 +169,11 @@ func (c *Converter) convertFile(file *descriptor.FileDescriptorProto) ([]*plugin
 			}
 
 			// Add a response:
+			name := jsonSchemaFileName
+			content := string(jsonSchemaJSON)
 			resFile := &plugin.CodeGeneratorResponse_File{
-				Name:    proto.String(jsonSchemaFileName),
-				Content: proto.String(string(jsonSchemaJSON)),
+				Name:    &name,
+				Content: &content,
 			}
 			response = append(response, resFile)
 		}
@@ -186,6 +190,8 @@ func (c *Converter) convert(req *plugin.CodeGeneratorRequest) (*plugin.CodeGener
 
 	c.sourceInfo = newSourceCodeInfo(req.GetProtoFile())
 	res := &plugin.CodeGeneratorResponse{}
+	features := uint64(plugin.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
+	res.SupportedFeatures = &features
 	for _, file := range req.GetProtoFile() {
 		for _, msg := range file.GetMessageType() {
 			c.logger.WithField("msg_name", msg.GetName()).WithField("package_name", file.GetPackage()).Debug("Loading a message")
@@ -197,7 +203,8 @@ func (c *Converter) convert(req *plugin.CodeGeneratorRequest) (*plugin.CodeGener
 			c.logger.WithField("filename", file.GetName()).Debug("Converting file")
 			converted, err := c.convertFile(file)
 			if err != nil {
-				res.Error = proto.String(fmt.Sprintf("Failed to convert %s: %v", file.GetName(), err))
+				s := fmt.Sprintf("Failed to convert %s: %v", file.GetName(), err)
+				res.Error = &s
 				return res, err
 			}
 			res.File = append(res.File, converted...)

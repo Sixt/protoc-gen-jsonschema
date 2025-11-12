@@ -3,18 +3,18 @@
 // "Heavily influenced" by Google's "protog-gen-bq-schema"
 //
 // usage:
-//  $ bin/protoc --jsonschema_out=path/to/outdir foo.proto
 //
+//	$ bin/protoc --jsonschema_out=path/to/outdir foo.proto
 package main
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/golang/protobuf/proto"
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"github.com/sirupsen/logrus"
 	"github.com/sixt/protoc-gen-jsonschema/internal/converter"
+	"google.golang.org/protobuf/proto"
+	plugin "google.golang.org/protobuf/types/pluginpb"
 )
 
 func main() {

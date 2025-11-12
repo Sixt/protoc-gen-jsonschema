@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/alecthomas/jsonschema"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/iancoleman/orderedmap"
 	"github.com/xeipuuv/gojsonschema"
+	"google.golang.org/protobuf/encoding/prototext"
+	descriptor "google.golang.org/protobuf/types/descriptorpb"
 )
 
 var (
@@ -360,7 +360,7 @@ func (c *Converter) convertMessageType(curPkg *ProtoPackage, msg *descriptor.Des
 		jsonSchemaType.AdditionalProperties = []byte("true")
 	}
 
-	c.logger.WithField("message_str", proto.MarshalTextString(msg)).Trace("Converting message")
+	c.logger.WithField("message_str", prototext.Format(msg)).Trace("Converting message")
 	for _, fieldDesc := range msg.GetField() {
 		recursedJSONSchemaType, err := c.convertField(curPkg, fieldDesc, msg)
 		if err != nil {
