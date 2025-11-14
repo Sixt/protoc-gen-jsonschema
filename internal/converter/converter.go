@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/alecthomas/jsonschema"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
+	descriptor "google.golang.org/protobuf/types/descriptorpb"
+	plugin "google.golang.org/protobuf/types/pluginpb"
 )
 
 // Converter is everything you need to convert protos to JSONSchemas:
@@ -185,7 +185,9 @@ func (c *Converter) convert(req *plugin.CodeGeneratorRequest) (*plugin.CodeGener
 	}
 
 	c.sourceInfo = newSourceCodeInfo(req.GetProtoFile())
-	res := &plugin.CodeGeneratorResponse{}
+	res := &plugin.CodeGeneratorResponse{
+		SupportedFeatures: proto.Uint64(uint64(plugin.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)),
+	}
 	for _, file := range req.GetProtoFile() {
 		for _, msg := range file.GetMessageType() {
 			c.logger.WithField("msg_name", msg.GetName()).WithField("package_name", file.GetPackage()).Debug("Loading a message")

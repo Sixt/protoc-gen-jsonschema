@@ -2,11 +2,11 @@ module github.com/sixt/protoc-gen-jsonschema
 
 require (
 	github.com/alecthomas/jsonschema v0.0.0-20200127222324-dd4542c1f589
-	github.com/golang/protobuf v1.3.2
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/xeipuuv/gojsonschema v1.1.0
+	google.golang.org/protobuf v1.36.10
 )
 
 require (
